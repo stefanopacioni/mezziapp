@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MezziApp">
+<link rel="manifest" href="./manifest.json">
+<title>MezziApp — Registro Manutenzioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0d10;
+  --surface: #13151a;
+  --surface2: #1a1d24;
+  --border: #2a2d35;
+  --accent: #e8ff47;
+  --accent2: #ff6b35;
+  --accent3: #47c8ff;
+  --text: #f0f0f0;
+  --muted: #7a7f8e;
+  --danger: #ff4757;
+  --success: #2ed573;
+  --warning: #ffa502;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+#app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.screen { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+.screen.active { display: flex; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.topbar-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+.topbar-title span { color: var(--accent); }
+.btn-icon {
+  width: 40px; height: 40px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 18px; transition: all 0.2s;
+}
+.btn-icon:active { transform: scale(0.93); background: var(--surface2); }
+
+.scroll-content { flex: 1; overflow-y: auto; padding: 16px 16px 100px; -webkit-overflow-scrolling: touch; }
+
+.bottom-nav {
+  display: flex; align-items: center;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 4px; cursor: pointer; font-size: 10px; color: var(--muted);
+  transition: color 0.2s; gap: 4px;
+}
+.nav-item.active { color: var(--accent); }
+.nav-icon { font-size: 22px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+  cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+}
+.card:active { transform: scale(0.98); border-color: var(--accent); }
+.card-accent-bar {
+  position: absolute; top: 0; left: 0;
+  width: 4px; height: 100%;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.vehicle-card { display: flex; gap: 14px; align-items: center; }
+.vehicle-icon-wrap {
+  width: 52px; height: 52px; border-radius: 12px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; flex-shrink: 0;
+}
+.vehicle-info { flex: 1; min-width: 0; }
+.vehicle-name { font-family: var(--font-head); font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vehicle-plate { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; }
+.vehicle-meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-family: var(--font-mono); border: 1px solid; }
+.badge-warn { color: var(--warning); border-color: var(--warning); background: rgba(255,165,2,0.08); }
+.badge-danger { color: var(--danger); border-color: var(--danger); background: rgba(255,71,87,0.08); }
+.badge-ok { color: var(--success); border-color: var(--success); background: rgba(46,213,115,0.08); }
+.badge-info { color: var(--accent3); border-color: var(--accent3); background: rgba(71,200,255,0.08); }
+
+.log-card { padding-left: 20px; }
+.log-date { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.log-desc { font-weight: 500; font-size: 15px; line-height: 1.3; }
+.log-km { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 2px; }
+.log-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.log-cost { font-family: var(--font-mono); font-size: 14px; color: var(--accent); font-weight: 500; }
+
+.btn {
+  padding: 13px 20px; border-radius: var(--radius-sm);
+  border: none; cursor: pointer;
+  font-family: var(--font-head); font-size: 15px; font-weight: 700;
+  letter-spacing: 0.3px; transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--accent); color: #0c0d10; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: rgba(255,71,87,0.15); color: var(--danger); border: 1px solid var(--danger); }
+.btn-full { width: 100%; justify-content: center; }
+
+.fab {
+  position: fixed; bottom: 80px; right: 16px;
+  width: 56px; height: 56px; border-radius: 16px;
+  background: var(--accent); color: #0c0d10;
+  border: none; font-size: 26px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 4px 20px rgba(232,255,71,0.3);
+  transition: all 0.2s; z-index: 10;
+}
+.fab:active { transform: scale(0.92); }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); z-index: 100;
+  align-items: flex-end; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 92vh; overflow-y: auto;
+  padding: 0 0 env(safe-area-inset-bottom);
+  -webkit-overflow-scrolling: touch;
+}
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 12px auto 0; }
+.modal-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-title { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
+.modal-body { padding: 16px 20px; }
+
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; display: block; font-family: var(--font-mono); }
+.form-input, .form-select, .form-textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 11px 13px; font-size: 15px; font-family: var(--font-body);
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7f8e' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 35px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.file-upload-area {
+  border: 2px dashed var(--border); border-radius: var(--radius-sm);
+  padding: 20px; text-align: center; cursor: pointer;
+  transition: border-color 0.2s; background: var(--surface2);
+}
+.file-upload-area:active { border-color: var(--accent); }
+.file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.file-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); padding: 8px 12px;
+  border-radius: 8px; border: 1px solid var(--border); font-size: 13px;
+}
+.file-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 8px; }
+
+.deadline-section { margin-bottom: 20px; }
+.deadline-title { font-family: var(--font-head); font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.deadline-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  cursor: pointer;
+}
+.deadline-left { display: flex; align-items: center; gap: 12px; }
+.deadline-icon { font-size: 24px; }
+.deadline-name { font-weight: 500; font-size: 14px; }
+.deadline-veh { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-top: 2px; }
+.deadline-date { font-family: var(--font-mono); font-size: 12px; text-align: right; }
+.deadline-days { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+.stat-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-bottom: 4px; }
+.stat-val { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
+
+.empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+.empty-icon { font-size: 50px; margin-bottom: 12px; }
+.empty-text { font-size: 15px; line-height: 1.6; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.section-title { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
+
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 10px 20px; border-radius: 30px;
+  font-size: 14px; font-weight: 500;
+  opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.back-btn { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; cursor: pointer; padding: 4px 0; }
+.back-btn:active { color: var(--text); }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.chip {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-family: var(--font-mono);
+  border: 1px solid var(--border); cursor: pointer; color: var(--muted); transition: all 0.15s;
+}
+.chip.active { background: var(--accent); color: #0c0d10; border-color: var(--accent); }
+
+.notif-banner {
+  margin: 0 16px 12px;
+  background: rgba(255,165,2,0.1); border: 1px solid var(--warning);
+  border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.deadline-inputs { display: grid; gap: 10px; }
+.deadline-row { background: var(--surface2); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 12px; }
+.deadline-row-title { font-size: 12px; color: var(--muted); font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.6px; }
+
+.progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+.detail-section { margin-bottom: 20px; }
+.detail-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+.detail-value { font-size: 15px; line-height: 1.5; }
+.detail-value.mono { font-family: var(--font-mono); }
+
+.attach-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.attach-thumb {
+  aspect-ratio: 1; border-radius: 8px; background: var(--surface2);
+  border: 1px solid var(--border); overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 28px;
+}
+.attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Update banner */
+.update-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  background: var(--accent); color: #0c0d10;
+  padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-head); font-weight: 700; font-size: 14px;
+  transform: translateY(-100%); transition: transform 0.3s;
+}
+.update-banner.show { transform: translateY(0); }
+
+/* Install banner */
+.install-banner {
+  margin: 0 16px 12px;
+  background: rgba(232,255,71,0.08); border: 1px solid rgba(232,255,71,0.3);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- Update banner (shown when new SW is waiting) -->
+<div class="update-banner" id="update-banner">
+  🔄 Aggiornamento disponibile!
+  <button onclick="applyUpdate()" style="background:#0c0d10;color:var(--accent);border:none;padding:6px 14px;border-radius:6px;font-family:var(--font-head);font-weight:700;cursor:pointer">Aggiorna</button>
+</div>
+
+<div id="app">
+
+  <!-- SCREEN: DASHBOARD -->
+  <div id="screen-dashboard" class="screen active">
+    <div class="topbar">
+      <div class="topbar-title">Mezzi<span>App</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div id="sync-indicator" style="display:none;font-size:11px;font-family:var(--font-mono);color:var(--muted);padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px"></div>
+        <div class="btn-icon" onclick="openSettingsModal()" title="Impostazioni">⚙️</div>
+        <div class="btn-icon" onclick="openAddVehicle()" title="Aggiungi mezzo">＋</div>
+      </div>
+    </div>
+    <div id="install-banner-wrap"></div>
+    <div id="notif-banner-wrap"></div>
+    <div class="scroll-content" id="vehicles-list"></div>
+    <div class="bottom-nav">
+      <div class="nav-item active" onclick="showScreen('dashboard')"><div class="nav-icon">🚗</div>Mezzi</div>
+      <div class="nav-item" onclick="showScreen('deadlines')"><div class="nav-icon">📅</div>Scadenze</div>
+      <div class="nav-item" onclick="showScreen('summary')"><div class="nav-icon">📊</div>Riepilogo</div>
+    </div>
+  </div>
+
+  <!-- SCREEN: DEADLINES -->
+  <div id="screen-deadlines" class="screen">
+    <div class="topbar">
+      <div class="topbar-title">Sca<span>denze</span></div>
+    </div>
+    <div class="scroll-content" id="deadlines-content"></div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="showScreen('dashboard')"><div class="nav-icon">🚗</div>Mezzi</div>
+      <div class="nav-item active" onclick="showScreen('deadlines')"><div class="nav-icon">📅</div>Scadenze</div>
+      <div class="nav-item" onclick="showScreen('summary')"><div class="nav-icon">📊</div>Riepilogo</div>
+    </div>
+  </div>
+
+  <!-- SCREEN: SUMMARY -->
+  <div id="screen-summary" class="screen">
+    <div class="topbar">
+      <div class="topbar-title">Riepi<span>logo</span></div>
+    </div>
+    <div class="scroll-content" id="summary-content"></div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="showScreen('dashboard')"><div class="nav-icon">🚗</div>Mezzi</div>
+      <div class="nav-item" onclick="showScreen('deadlines')"><div class="nav-icon">📅</div>Scadenze</div>
+      <div class="nav-item active" onclick="showScreen('summary')"><div class="nav-icon">📊</div>Riepilogo</div>
+    </div>
+  </div>
+
+  <!-- SCREEN: VEHICLE DETAIL -->
+  <div id="screen-vehicle" class="screen">
+    <div class="topbar">
+      <div class="back-btn" onclick="showScreen('dashboard')">← Mezzi</div>
+      <div style="display:flex;gap:8px">
+        <div class="btn-icon" onclick="openEditVehicle(currentVehicleId)">✏️</div>
+        <div class="btn-icon" onclick="confirmDeleteVehicle(currentVehicleId)">🗑️</div>
+      </div>
+    </div>
+    <div id="vehicle-header-wrap"></div>
+    <div class="scroll-content" id="logs-list"></div>
+    <div class="fab" onclick="openAddLog()">＋</div>
+  </div>
+
+  <!-- SCREEN: LOG DETAIL -->
+  <div id="screen-log" class="screen">
+    <div class="topbar">
+      <div class="back-btn" onclick="showScreen('vehicle')">← Log</div>
+      <div style="display:flex;gap:8px">
+        <div class="btn-icon" onclick="openEditLog(currentLogId)">✏️</div>
+        <div class="btn-icon" onclick="confirmDeleteLog(currentLogId)">🗑️</div>
+      </div>
+    </div>
+    <div class="scroll-content" id="log-detail-content"></div>
+  </div>
+
+</div>
+
+<!-- MODAL: ADD/EDIT VEHICLE -->
+<div class="modal-overlay" id="modal-vehicle">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-vehicle-title">Nuovo Mezzo</div>
+      <div class="btn-icon" onclick="closeModal('modal-vehicle')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nome / Modello *</label>
+        <input class="form-input" id="v-name" placeholder="es. Fiat Panda, BMW R1200GS...">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Targa</label>
+          <input class="form-input" id="v-plate" placeholder="AB 123 CD" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="v-type">
+            <option value="🚗">🚗 Auto</option>
+            <option value="🏍️">🏍️ Moto</option>
+            <option value="🚐">🚐 Furgone</option>
+            <option value="🚛">🚛 Camion</option>
+            <option value="🚜">🚜 Trattore</option>
+            <option value="⛵">⛵ Barca</option>
+            <option value="🚤">🚤 Motoscafo</option>
+            <option value="🚁">🚁 Elicottero</option>
+            <option value="✈️">✈️ Aereo</option>
+            <option value="🛵">🛵 Scooter</option>
+            <option value="🔧">🔧 Altro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Chilometraggio attuale</label>
+        <input class="form-input" id="v-km" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Colore identificativo</label>
+        <div class="chips" id="color-chips">
+          <div class="chip active" data-color="#e8ff47" onclick="selectColor(this,'#e8ff47')" style="border-color:#e8ff47;color:#e8ff47">●</div>
+          <div class="chip" data-color="#ff6b35" onclick="selectColor(this,'#ff6b35')" style="border-color:#ff6b35;color:#ff6b35">●</div>
+          <div class="chip" data-color="#47c8ff" onclick="selectColor(this,'#47c8ff')" style="border-color:#47c8ff;color:#47c8ff">●</div>
+          <div class="chip" data-color="#2ed573" onclick="selectColor(this,'#2ed573')" style="border-color:#2ed573;color:#2ed573">●</div>
+          <div class="chip" data-color="#ff4757" onclick="selectColor(this,'#ff4757')" style="border-color:#ff4757;color:#ff4757">●</div>
+          <div class="chip" data-color="#a29bfe" onclick="selectColor(this,'#a29bfe')" style="border-color:#a29bfe;color:#a29bfe">●</div>
+          <div class="chip" data-color="#fd79a8" onclick="selectColor(this,'#fd79a8')" style="border-color:#fd79a8;color:#fd79a8">●</div>
+          <div class="chip" data-color="#ffa502" onclick="selectColor(this,'#ffa502')" style="border-color:#ffa502;color:#ffa502">●</div>
+        </div>
+      </div>
+      <div style="margin-top:4px;margin-bottom:14px">
+        <div class="deadline-row-title" style="font-size:13px;color:var(--muted);margin-bottom:10px">📅 SCADENZE</div>
+        <div class="deadline-inputs">
+          <div class="deadline-row">
+            <div class="deadline-row-title">🔧 Revisione</div>
+            <input class="form-input" id="v-revisione" type="date">
+          </div>
+          <div class="deadline-row">
+            <div class="deadline-row-title">🛡️ Assicurazione</div>
+            <input class="form-input" id="v-assicurazione" type="date">
+          </div>
+          <div class="deadline-row">
+            <div class="deadline-row-title">💰 Bollo</div>
+            <input class="form-input" id="v-bollo" type="date">
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-vehicle')">Annulla</button>
+        <button class="btn btn-primary" style="flex:2" onclick="saveVehicle()">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD/EDIT LOG -->
+<div class="modal-overlay" id="modal-log">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-log-title">Nuovo Log</div>
+      <div class="btn-icon" onclick="closeModal('modal-log')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input class="form-input" id="l-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Km *</label>
+          <input class="form-input" id="l-km" type="number" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo intervento</label>
+        <select class="form-select" id="l-type">
+          <option value="ordinaria">🔧 Ordinaria</option>
+          <option value="straordinaria">⚡ Straordinaria</option>
+          <option value="revisione">🔍 Revisione</option>
+          <option value="assicurazione">🛡️ Assicurazione</option>
+          <option value="bollo">💰 Bollo</option>
+          <option value="carburante">⛽ Rifornimento</option>
+          <option value="altro">📝 Altro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrizione *</label>
+        <input class="form-input" id="l-desc" placeholder="es. Cambio olio e filtri...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note</label>
+        <textarea class="form-textarea" id="l-notes" placeholder="Note aggiuntive..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Costo (€)</label>
+        <input class="form-input" id="l-cost" type="number" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Allegati (JPG / PDF)</label>
+        <div class="file-upload-area" onclick="document.getElementById('l-files').click()">
+          <div>📎 Tocca per aggiungere file</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">JPG, PNG, PDF supportati</div>
+          <input type="file" id="l-files" multiple accept="image/*,.pdf" onchange="handleFileSelect(event)">
+        </div>
+        <div class="file-list" id="file-list"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-log')">Annulla</button>
+        <button class="btn btn-primary" style="flex:2" onclick="saveLog()">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BACKUP -->
+<div class="modal-overlay" id="modal-backup">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Backup & Ripristino</div>
+      <div class="btn-icon" onclick="closeModal('modal-backup')">✕</div>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">Esporta il database in un file JSON. Puoi importarlo su un altro dispositivo o per ripristinare i dati. <strong style="color:var(--text)">I dati rimangono sempre sul tuo dispositivo.</strong></p>
+      <button class="btn btn-primary btn-full" onclick="exportDB()" style="margin-bottom:10px">⬇️ Esporta Database</button>
+      <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+      <label class="form-label">Importa Database</label>
+      <div class="file-upload-area" onclick="document.getElementById('import-file').click()" style="margin-bottom:10px">
+        <div>📂 Seleziona file JSON</div>
+        <input type="file" id="import-file" accept=".json" onchange="importDB(event)" style="display:none">
+      </div>
+      <p style="color:var(--danger);font-size:12px">⚠️ L'importazione sovrascrive tutti i dati esistenti.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIRM -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="confirm-title">Conferma</div>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-msg" style="color:var(--muted);margin-bottom:20px;font-size:15px;line-height:1.5"></p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-confirm')">Annulla</button>
+        <button class="btn btn-danger" style="flex:1" id="confirm-ok-btn">Elimina</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SETTINGS (Gist + Backup) -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Impostazioni</div>
+      <div class="btn-icon" onclick="closeModal('modal-settings')">✕</div>
+    </div>
+    <div class="modal-body">
+
+      <!-- GIST SYNC -->
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;margin-bottom:4px">☁️ Sincronizzazione GitHub Gist</div>
+        <p style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:14px">I tuoi dati vengono salvati in un Gist <strong style="color:var(--text)">privato</strong> sul tuo account GitHub. Accessibili da qualsiasi dispositivo, visibili solo a te.</p>
+        <div id="sync-status-box" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5"></div>
+        <div class="form-group">
+          <label class="form-label">Personal Access Token GitHub</label>
+          <input class="form-input" id="cfg-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Scope richiesto: <code style="color:var(--accent)">gist</code> — <span onclick="window.open('https://github.com/settings/tokens/new?scopes=gist&description=MezziApp')" style="color:var(--accent3);cursor:pointer;text-decoration:underline">Crea token →</span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gist ID <span style="color:var(--muted);font-weight:400">(lascia vuoto per crearne uno nuovo)</span></label>
+          <input class="form-input" id="cfg-gist" placeholder="Es: a1b2c3d4e5f6..." autocomplete="off" style="font-family:var(--font-mono)">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <button class="btn btn-secondary" onclick="gistSaveConfig()">💾 Salva config</button>
+          <button class="btn btn-primary" onclick="gistSync()">🔄 Sincronizza ora</button>
+        </div>
+        <button class="btn btn-secondary btn-full" onclick="gistPush()" style="margin-bottom:4px">⬆️ Carica locale → Gist</button>
+        <button class="btn btn-secondary btn-full" onclick="gistPull()">⬇️ Scarica Gist → locale</button>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+
+      <!-- BACKUP MANUALE -->
+      <div>
+        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;margin-bottom:12px">📦 Backup manuale JSON</div>
+        <button class="btn btn-primary btn-full" onclick="exportDB()" style="margin-bottom:10px">⬇️ Esporta Database</button>
+        <label class="form-label">Importa Database</label>
+        <div class="file-upload-area" onclick="document.getElementById('import-file').click()" style="margin-bottom:8px">
+          <div>📂 Seleziona file JSON</div>
+          <input type="file" id="import-file" accept=".json" onchange="importDB(event)" style="display:none">
+        </div>
+        <p style="color:var(--danger);font-size:12px">⚠️ L'importazione sovrascrive tutti i dati esistenti.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:300;flex-direction:column;align-items:center;justify-content:center" onclick="closeLightbox()">
+  <img id="lightbox-img" style="max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px;display:none">
+  <div id="lightbox-pdf" style="display:none;flex-direction:column;align-items:center;gap:12px">
+    <div style="font-size:60px">📄</div>
+    <div style="font-size:14px;color:var(--muted)" id="lightbox-pdf-name"></div>
+    <a id="lightbox-pdf-link" href="#" download onclick="event.stopPropagation()" style="color:var(--accent);font-size:14px;border:1px solid var(--accent);padding:8px 20px;border-radius:8px">⬇️ Scarica PDF</a>
+  </div>
+  <div style="color:var(--muted);font-size:13px;margin-top:16px">Tocca per chiudere</div>
+</div>
+
+<script>
+// ============================================================
+// DATABASE (localStorage)
+// ============================================================
+const DB_KEY = 'mezziapp_db';
+function loadDB() {
+  try { const r = localStorage.getItem(DB_KEY); if (r) return JSON.parse(r); } catch(e) {}
+  return { vehicles: [], logs: [] };
+}
+function saveDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+let db = loadDB();
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ============================================================
+// STATE
+// ============================================================
+let currentVehicleId = null;
+let currentLogId = null;
+let editingVehicleId = null;
+let editingLogId = null;
+let selectedColor = '#e8ff47';
+let pendingFiles = [];
+
+// ============================================================
+// SERVICE WORKER REGISTRATION
+// ============================================================
+let swRegistration = null;
+let newWorkerWaiting = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    swRegistration = reg;
+    // Check if there's already a waiting worker
+    if (reg.waiting) showUpdateBanner(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner(nw);
+        }
+      });
+    });
+  }).catch(() => {});
+  // When the new SW takes control, reload
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+}
+
+function showUpdateBanner(worker) {
+  newWorkerWaiting = worker;
+  document.getElementById('update-banner').classList.add('show');
+}
+function applyUpdate() {
+  if (newWorkerWaiting) newWorkerWaiting.postMessage({ type: 'SKIP_WAITING' });
+}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'deadlines') renderDeadlines();
+  if (name === 'summary') renderSummary();
+  if (name === 'vehicle') renderVehicleDetail();
+  if (name === 'log') renderLogDetail();
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color || 'var(--border)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const list = document.getElementById('vehicles-list');
+  if (db.vehicles.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🚗</div><div class="empty-text">Nessun mezzo aggiunto.<br>Premi ＋ per iniziare.</div></div>`;
+  } else {
+    list.innerHTML = db.vehicles.map(v => {
+      const logs = db.logs.filter(l => l.vehicleId === v.id);
+      const lastKm = logs.length ? Math.max(...logs.map(l => l.km||0)) : (v.km||0);
+      const badges = getDeadlineBadges(v);
+      return `<div class="card" onclick="openVehicle('${v.id}')">
+        <div class="card-accent-bar" style="background:${v.color||'#e8ff47'}"></div>
+        <div class="vehicle-card" style="padding-left:8px">
+          <div class="vehicle-icon-wrap">${v.type||'🚗'}</div>
+          <div class="vehicle-info">
+            <div class="vehicle-name">${esc(v.name)}</div>
+            <div class="vehicle-plate">${v.plate ? esc(v.plate.toUpperCase()) : '—'}</div>
+            <div class="vehicle-meta">${badges}</div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:13px;color:var(--muted);text-align:right">${fmt(lastKm)}<br><span style="font-size:10px">km</span></div>
+            <div style="font-size:11px;color:var(--muted);text-align:right;margin-top:4px">${logs.length} log</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const nbw = document.getElementById('notif-banner-wrap');
+  const expiring = getExpiringDeadlines(30);
+  nbw.innerHTML = expiring.length ? `<div class="notif-banner">⚠️ ${expiring.length} scadenz${expiring.length>1?'e imminenti':'a imminente'}!</div>` : '';
+
+  checkInstallBanner();
+}
+
+function getDeadlineBadges(v) {
+  return ['revisione','assicurazione','bollo'].map(k => {
+    if (!v[k]) return '';
+    const d = daysUntil(v[k]);
+    const icons = { revisione:'🔧', assicurazione:'🛡️', bollo:'💰' };
+    if (d < 0) return `<span class="badge badge-danger">${icons[k]} Scad.</span>`;
+    if (d <= 30) return `<span class="badge badge-warn">${icons[k]} ${d}gg</span>`;
+    return '';
+  }).join('');
+}
+
+// ============================================================
+// PWA INSTALL
+// ============================================================
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; checkInstallBanner(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; checkInstallBanner(); });
+
+function checkInstallBanner() {
+  const w = document.getElementById('install-banner-wrap');
+  w.innerHTML = deferredPrompt
+    ? `<div class="install-banner" onclick="installPWA()">📲 Installa MezziApp sulla home per usarla offline</div>`
+    : '';
+}
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; checkInstallBanner(); });
+}
+
+// ============================================================
+// VEHICLE CRUD
+// ============================================================
+function openVehicle(id) { currentVehicleId = id; showScreen('vehicle'); }
+
+function renderVehicleDetail() {
+  const v = db.vehicles.find(x => x.id === currentVehicleId);
+  if (!v) { showScreen('dashboard'); return; }
+  const logs = db.logs.filter(l => l.vehicleId === v.id).sort((a,b) => new Date(b.date)-new Date(a.date));
+  const lastKm = logs.length ? Math.max(...logs.map(l=>l.km||0)) : (v.km||0);
+  const totalCost = logs.reduce((s,l) => s+(parseFloat(l.cost)||0), 0);
+
+  document.getElementById('vehicle-header-wrap').innerHTML = `
+    <div style="padding:14px 16px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:44px;height:44px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid ${v.color||'var(--border)'}">${v.type||'🚗'}</div>
+        <div>
+          <div style="font-family:var(--font-head);font-size:18px;font-weight:800">${esc(v.name)}</div>
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${v.plate?esc(v.plate.toUpperCase()):'—'}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">KM</div>
+          <div style="font-family:var(--font-mono);font-size:14px;font-weight:600">${fmt(lastKm)}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">LOG</div>
+          <div style="font-family:var(--font-mono);font-size:14px;font-weight:600">${logs.length}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">COSTO</div>
+          <div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--accent)">€${totalCost.toFixed(0)}</div>
+        </div>
+      </div>
+      ${renderDeadlineStrip(v)}
+    </div>`;
+
+  const logList = document.getElementById('logs-list');
+  if (!logs.length) {
+    logList.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nessun log.<br>Premi ＋ per aggiungere.</div></div>`;
+    return;
+  }
+  const typeColors = { ordinaria:'#47c8ff', straordinaria:'#ff6b35', revisione:'#2ed573', assicurazione:'#a29bfe', bollo:'#ffa502', carburante:'#e8ff47', altro:'#7a7f8e' };
+  logList.innerHTML = logs.map(l => {
+    const c = typeColors[l.type]||'#7a7f8e';
+    const att = (l.attachments||[]).length;
+    return `<div class="card log-card" onclick="openLog('${l.id}')">
+      <div class="card-accent-bar" style="background:${c}"></div>
+      <div class="log-date">${fmtDate(l.date)} · ${typeLabel(l.type)}</div>
+      <div class="log-desc">${esc(l.description)}</div>
+      <div class="log-km">${fmt(l.km)} km</div>
+      <div class="log-footer">
+        <div class="log-cost">${l.cost ? '€ '+parseFloat(l.cost).toFixed(2) : '—'}</div>
+        <div style="font-size:12px;color:var(--muted)">${att?'📎 '+att:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderDeadlineStrip(v) {
+  const items = [
+    {key:'revisione',label:'Revisione',icon:'🔧'},
+    {key:'assicurazione',label:'Assicurazione',icon:'🛡️'},
+    {key:'bollo',label:'Bollo',icon:'💰'}
+  ].filter(i => v[i.key]);
+  if (!items.length) return '';
+  return `<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    ${items.map(i => {
+      const d = daysUntil(v[i.key]);
+      const cl = d<0?'var(--danger)':d<=30?'var(--warning)':'var(--success)';
+      const txt = d<0?`Scad. ${Math.abs(d)}gg fa`:d===0?'Oggi':`${d}gg`;
+      return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border-radius:8px;padding:7px 10px;flex:1;min-width:0">
+        <div>${i.icon}</div>
+        <div style="min-width:0">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">${i.label}</div>
+          <div style="font-size:12px;font-family:var(--font-mono);white-space:nowrap">${fmtDate(v[i.key])}</div>
+        </div>
+        <div style="margin-left:auto;font-size:10px;color:${cl};font-family:var(--font-mono);white-space:nowrap">${txt}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function openAddVehicle() {
+  editingVehicleId = null;
+  document.getElementById('modal-vehicle-title').textContent = 'Nuovo Mezzo';
+  ['v-name','v-plate','v-km','v-revisione','v-assicurazione','v-bollo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('v-type').value = '🚗';
+  selectedColor = '#e8ff47';
+  document.querySelectorAll('#color-chips .chip').forEach(c => { c.classList.remove('active'); if(c.dataset.color==='#e8ff47') c.classList.add('active'); });
+  openModal('modal-vehicle');
+}
+function openEditVehicle(id) {
+  const v = db.vehicles.find(x=>x.id===id);
+  if (!v) return;
+  editingVehicleId = id;
+  document.getElementById('modal-vehicle-title').textContent = 'Modifica Mezzo';
+  document.getElementById('v-name').value = v.name||'';
+  document.getElementById('v-plate').value = v.plate||'';
+  document.getElementById('v-type').value = v.type||'🚗';
+  document.getElementById('v-km').value = v.km||'';
+  document.getElementById('v-revisione').value = v.revisione||'';
+  document.getElementById('v-assicurazione').value = v.assicurazione||'';
+  document.getElementById('v-bollo').value = v.bollo||'';
+  selectedColor = v.color||'#e8ff47';
+  document.querySelectorAll('#color-chips .chip').forEach(c => { c.classList.remove('active'); if(c.dataset.color===selectedColor) c.classList.add('active'); });
+  openModal('modal-vehicle');
+}
+function saveVehicle() {
+  const name = document.getElementById('v-name').value.trim();
+  if (!name) { toast('Inserisci il nome del mezzo', 'var(--danger)'); return; }
+  const data = {
+    name, color: selectedColor,
+    plate: document.getElementById('v-plate').value.trim().toUpperCase(),
+    type: document.getElementById('v-type').value,
+    km: parseInt(document.getElementById('v-km').value)||0,
+    revisione: document.getElementById('v-revisione').value,
+    assicurazione: document.getElementById('v-assicurazione').value,
+    bollo: document.getElementById('v-bollo').value,
+  };
+  if (editingVehicleId) {
+    const idx = db.vehicles.findIndex(v=>v.id===editingVehicleId);
+    if (idx>=0) db.vehicles[idx] = {...db.vehicles[idx], ...data};
+    toast('Mezzo aggiornato ✓','var(--success)');
+  } else {
+    db.vehicles.push({id:genId(),...data});
+    toast('Mezzo aggiunto ✓','var(--success)');
+  }
+  saveDB(db); closeModal('modal-vehicle');
+  renderDashboard();
+  if (editingVehicleId && currentVehicleId===editingVehicleId) renderVehicleDetail();
+}
+function selectColor(el, color) {
+  selectedColor = color;
+  document.querySelectorAll('#color-chips .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function confirmDeleteVehicle(id) {
+  const v = db.vehicles.find(x=>x.id===id);
+  if (!v) return;
+  document.getElementById('confirm-title').textContent = 'Elimina Mezzo';
+  document.getElementById('confirm-msg').textContent = `Eliminare "${v.name}" e tutti i suoi log?`;
+  document.getElementById('confirm-ok-btn').onclick = () => {
+    db.vehicles = db.vehicles.filter(x=>x.id!==id);
+    db.logs = db.logs.filter(l=>l.vehicleId!==id);
+    saveDB(db); closeModal('modal-confirm');
+    showScreen('dashboard'); toast('Mezzo eliminato','var(--danger)');
+  };
+  openModal('modal-confirm');
+}
+
+// ============================================================
+// LOG CRUD
+// ============================================================
+function openLog(id) { currentLogId = id; showScreen('log'); }
+
+function renderLogDetail() {
+  const l = db.logs.find(x=>x.id===currentLogId);
+  if (!l) { showScreen('vehicle'); return; }
+  const typeColors = { ordinaria:'#47c8ff',straordinaria:'#ff6b35',revisione:'#2ed573',assicurazione:'#a29bfe',bollo:'#ffa502',carburante:'#e8ff47',altro:'#7a7f8e' };
+  const c = typeColors[l.type]||'#7a7f8e';
+  let attachHtml = '';
+  if (l.attachments && l.attachments.length) {
+    attachHtml = `<div class="detail-section"><div class="detail-label">Allegati</div>
+      <div class="attach-grid">${l.attachments.map(a =>
+        a.type&&a.type.startsWith('image')
+          ? `<div class="attach-thumb" onclick="openLightbox('${esc(a.name)}','${a.data}','img')"><img src="${a.data}" alt="${esc(a.name)}"></div>`
+          : `<div class="attach-thumb" onclick="openLightbox('${esc(a.name)}','${a.data}','pdf')">📄<div style="font-size:9px;color:var(--muted);margin-top:4px;padding:0 4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</div></div>`
+      ).join('')}</div></div>`;
+  }
+  document.getElementById('log-detail-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c}"></div>
+      <span style="font-size:13px;color:${c};font-family:var(--font-mono)">${typeLabel(l.type)}</span>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Descrizione</div>
+      <div class="detail-value" style="font-size:18px;font-family:var(--font-head);font-weight:700">${esc(l.description)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><div class="detail-label">Data</div><div class="detail-value mono">${fmtDate(l.date)}</div></div>
+      <div><div class="detail-label">Chilometraggio</div><div class="detail-value mono">${fmt(l.km)} km</div></div>
+    </div>
+    ${l.cost ? `<div class="detail-section"><div class="detail-label">Costo</div><div class="detail-value mono" style="color:var(--accent);font-size:22px;font-weight:600">€ ${parseFloat(l.cost).toFixed(2)}</div></div>` : ''}
+    ${l.notes ? `<div class="detail-section"><div class="detail-label">Note</div><div class="detail-value">${esc(l.notes)}</div></div>` : ''}
+    ${attachHtml}`;
+}
+
+function openAddLog() {
+  editingLogId = null; pendingFiles = [];
+  document.getElementById('modal-log-title').textContent = 'Nuovo Log';
+  document.getElementById('l-date').value = new Date().toISOString().split('T')[0];
+  ['l-km','l-desc','l-notes','l-cost'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('l-type').value = 'ordinaria';
+  document.getElementById('file-list').innerHTML = '';
+  openModal('modal-log');
+}
+function openEditLog(id) {
+  const l = db.logs.find(x=>x.id===id);
+  if (!l) return;
+  editingLogId = id; pendingFiles = l.attachments ? [...l.attachments] : [];
+  document.getElementById('modal-log-title').textContent = 'Modifica Log';
+  document.getElementById('l-date').value = l.date||'';
+  document.getElementById('l-km').value = l.km||'';
+  document.getElementById('l-type').value = l.type||'ordinaria';
+  document.getElementById('l-desc').value = l.description||'';
+  document.getElementById('l-notes').value = l.notes||'';
+  document.getElementById('l-cost').value = l.cost||'';
+  renderFileList(); openModal('modal-log');
+}
+function saveLog() {
+  const desc = document.getElementById('l-desc').value.trim();
+  const date = document.getElementById('l-date').value;
+  if (!desc||!date) { toast('Inserisci data e descrizione','var(--danger)'); return; }
+  const km = parseInt(document.getElementById('l-km').value)||0;
+  const data = {
+    vehicleId: currentVehicleId, date, km,
+    type: document.getElementById('l-type').value,
+    description: desc,
+    notes: document.getElementById('l-notes').value.trim(),
+    cost: document.getElementById('l-cost').value||'',
+    attachments: pendingFiles,
+  };
+  if (editingLogId) {
+    const idx = db.logs.findIndex(l=>l.id===editingLogId);
+    if (idx>=0) db.logs[idx] = {...db.logs[idx],...data};
+    toast('Log aggiornato ✓','var(--success)');
+  } else {
+    db.logs.push({id:genId(),...data});
+    const v = db.vehicles.find(x=>x.id===currentVehicleId);
+    if (v && km>(v.km||0)) { v.km=km; saveDB(db); }
+    toast('Log aggiunto ✓','var(--success)');
+  }
+  saveDB(db); closeModal('modal-log'); renderVehicleDetail();
+  if (editingLogId) renderLogDetail();
+}
+function confirmDeleteLog(id) {
+  document.getElementById('confirm-title').textContent = 'Elimina Log';
+  document.getElementById('confirm-msg').textContent = 'Eliminare questo log? Questa azione non è reversibile.';
+  document.getElementById('confirm-ok-btn').onclick = () => {
+    db.logs = db.logs.filter(l=>l.id!==id);
+    saveDB(db); closeModal('modal-confirm');
+    showScreen('vehicle'); toast('Log eliminato','var(--danger)');
+  };
+  openModal('modal-confirm');
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      pendingFiles.push({name:file.name,type:file.type,data:ev.target.result});
+      if (++loaded===files.length) renderFileList();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value='';
+}
+function renderFileList() {
+  document.getElementById('file-list').innerHTML = pendingFiles.map((f,i) =>
+    `<div class="file-item">
+      <span>${f.type&&f.type.startsWith('image')?'🖼️':'📄'}</span>
+      <span class="file-item-name">${esc(f.name)}</span>
+      <div class="btn-icon" style="width:28px;height:28px;font-size:14px" onclick="removeFile(${i})">✕</div>
+    </div>`).join('');
+}
+function removeFile(i) { pendingFiles.splice(i,1); renderFileList(); }
+
+// ============================================================
+// DEADLINES SCREEN
+// ============================================================
+function renderDeadlines() {
+  const container = document.getElementById('deadlines-content');
+  const types = [
+    {key:'revisione',label:'Revisione',icon:'🔧'},
+    {key:'assicurazione',label:'Assicurazione',icon:'🛡️'},
+    {key:'bollo',label:'Bollo',icon:'💰'}
+  ];
+  const all = [];
+  db.vehicles.forEach(v => types.forEach(t => { if(v[t.key]) all.push({vehicle:v,type:t,date:v[t.key],days:daysUntil(v[t.key])}); }));
+  all.sort((a,b)=>a.days-b.days);
+  if (!all.length) { container.innerHTML=`<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">Nessuna scadenza impostata.<br>Modifica un mezzo per aggiungere le date.</div></div>`; return; }
+  const expired = all.filter(i=>i.days<0);
+  const soon = all.filter(i=>i.days>=0&&i.days<=30);
+  const ok = all.filter(i=>i.days>30);
+  let html='';
+  if(expired.length) html+=renderDeadlineGroup('🔴 Scaduti',expired);
+  if(soon.length) html+=renderDeadlineGroup('🟡 In scadenza (30 giorni)',soon);
+  if(ok.length) html+=renderDeadlineGroup('🟢 In regola',ok);
+  container.innerHTML=html;
+}
+function renderDeadlineGroup(title, items) {
+  return `<div class="deadline-section">
+    <div class="deadline-title">${title}</div>
+    ${items.map(i => {
+      const c = i.days<0?'var(--danger)':i.days<=30?'var(--warning)':'var(--success)';
+      const txt = i.days<0?`${Math.abs(i.days)} giorni fa`:i.days===0?'Oggi':`${i.days} giorni`;
+      return `<div class="deadline-item" onclick="openVehicle('${i.vehicle.id}')">
+        <div class="deadline-left">
+          <div class="deadline-icon">${i.type.icon}</div>
+          <div>
+            <div class="deadline-name">${i.type.label}</div>
+            <div class="deadline-veh">${esc(i.vehicle.name)}${i.vehicle.plate?' · '+esc(i.vehicle.plate.toUpperCase()):''}</div>
+          </div>
+        </div>
+        <div class="deadline-date">
+          <div style="color:${c};font-family:var(--font-mono)">${fmtDate(i.date)}</div>
+          <div class="deadline-days" style="color:${c}">${txt}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function getExpiringDeadlines(days) {
+  const r=[];
+  db.vehicles.forEach(v=>['revisione','assicurazione','bollo'].forEach(k=>{ if(v[k]){ const d=daysUntil(v[k]); if(d<=days) r.push({vehicle:v,key:k,days:d}); } }));
+  return r;
+}
+
+// ============================================================
+// SUMMARY SCREEN
+// ============================================================
+function renderSummary() {
+  const container = document.getElementById('summary-content');
+  if (!db.logs.length&&!db.vehicles.length) { container.innerHTML=`<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Nessun dato disponibile.</div></div>`; return; }
+  const totalCost=db.logs.reduce((s,l)=>s+(parseFloat(l.cost)||0),0);
+  const year=new Date().getFullYear();
+  const yearCost=db.logs.filter(l=>l.date&&l.date.startsWith(year)).reduce((s,l)=>s+(parseFloat(l.cost)||0),0);
+  const ordCount=db.logs.filter(l=>l.type==='ordinaria').length;
+  const extraCount=db.logs.filter(l=>l.type==='straordinaria').length;
+  const byVehicle=db.vehicles.map(v=>{
+    const logs=db.logs.filter(l=>l.vehicleId===v.id);
+    return {v,logs,cost:logs.reduce((s,l)=>s+(parseFloat(l.cost)||0),0)};
+  }).sort((a,b)=>b.cost-a.cost);
+  let html=`
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Costo totale</div><div class="stat-val" style="color:var(--accent)">€${totalCost.toFixed(0)}</div></div>
+      <div class="stat-card"><div class="stat-label">Anno ${year}</div><div class="stat-val">€${yearCost.toFixed(0)}</div></div>
+      <div class="stat-card"><div class="stat-label">Ord.</div><div class="stat-val">${ordCount}</div></div>
+      <div class="stat-card"><div class="stat-label">Straord.</div><div class="stat-val">${extraCount}</div></div>
+    </div>
+    <div class="section-header"><div class="section-title">Per Mezzo</div></div>`;
+  byVehicle.forEach(({v,logs,cost})=>{
+    const pct=totalCost>0?(cost/totalCost*100).toFixed(0):0;
+    html+=`<div class="card" onclick="openVehicle('${v.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px"><span>${v.type||'🚗'}</span><span style="font-weight:600">${esc(v.name)}</span></div>
+        <span style="font-family:var(--font-mono);color:var(--accent)">€${cost.toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px"><span>${logs.length} interventi</span><span>${pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${v.color||'var(--accent)'}"></div></div>
+    </div>`;
+  });
+  const recent=[...db.logs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  if(recent.length){
+    html+=`<div class="section-header" style="margin-top:8px"><div class="section-title">Ultimi Interventi</div></div>`;
+    recent.forEach(l=>{
+      const v=db.vehicles.find(x=>x.id===l.vehicleId);
+      html+=`<div class="card log-card" onclick="openVehicle('${l.vehicleId}')">
+        <div class="log-date">${fmtDate(l.date)} · ${v?esc(v.name):'?'}</div>
+        <div class="log-desc">${esc(l.description)}</div>
+        <div class="log-footer"><div class="log-cost">${l.cost?'€ '+parseFloat(l.cost).toFixed(2):'—'}</div></div>
+      </div>`;
+    });
+  }
+  container.innerHTML=html;
+}
+
+// ============================================================
+// BACKUP / RESTORE
+// ============================================================
+function openBackupModal() { openModal('modal-backup'); }
+function exportDB() {
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download=`mezziapp_backup_${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Database esportato ✓','var(--success)');
+}
+function importDB(event) {
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const imp=JSON.parse(e.target.result);
+      if(!imp.vehicles||!imp.logs) throw new Error();
+      db=imp; saveDB(db); closeModal('modal-backup');
+      renderDashboard(); toast('Database importato ✓','var(--success)');
+    } catch { toast('File non valido','var(--danger)'); }
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// LIGHTBOX
+// ============================================================
+function openLightbox(name,data,type) {
+  const lb=document.getElementById('lightbox');
+  const img=document.getElementById('lightbox-img');
+  const pdf=document.getElementById('lightbox-pdf');
+  if(type==='img') { img.src=data; img.style.display='block'; pdf.style.display='none'; }
+  else { img.style.display='none'; pdf.style.display='flex'; document.getElementById('lightbox-pdf-name').textContent=name; const lk=document.getElementById('lightbox-pdf-link'); lk.href=data; lk.download=name; }
+  lb.style.display='flex';
+}
+function closeLightbox() { document.getElementById('lightbox').style.display='none'; }
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+async function initNotifications() {
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default') await Notification.requestPermission();
+  const today=new Date().toISOString().split('T')[0];
+  if(localStorage.getItem('last_notif_date')===today) return;
+  localStorage.setItem('last_notif_date',today);
+  if(Notification.permission!=='granted') return;
+  getExpiringDeadlines(30).forEach(item=>{
+    const names={revisione:'Revisione',assicurazione:'Assicurazione',bollo:'Bollo'};
+    try {
+      new Notification(`⚠️ ${names[item.key]} in scadenza`,{
+        body:`${item.vehicle.name}: scade tra ${item.days>=0?item.days+' giorni':'oggi/scaduto'}`,
+        tag:`mezziapp-${item.vehicle.id}-${item.key}`
+      });
+    } catch(e) {}
+  });
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmt(n){return(parseInt(n)||0).toLocaleString('it-IT');}
+function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
+function daysUntil(ds){if(!ds)return 9999;const t=new Date(ds),td=new Date();td.setHours(0,0,0,0);return Math.round((t-td)/86400000);}
+function typeLabel(t){return{ordinaria:'Ordinaria',straordinaria:'Straordinaria',revisione:'Revisione',assicurazione:'Assicurazione',bollo:'Bollo',carburante:'Rifornimento',altro:'Altro'}[t]||t;}
+
+// ============================================================
+// GIST SYNC
+// ============================================================
+const CFG_KEY = 'mezziapp_cfg';
+
+function gistLoadConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+}
+function gistSaveConfig() {
+  const token = document.getElementById('cfg-token').value.trim();
+  const gistId = document.getElementById('cfg-gist').value.trim();
+  if (!token) { toast('Inserisci il token GitHub', 'var(--danger)'); return; }
+  localStorage.setItem(CFG_KEY, JSON.stringify({ token, gistId }));
+  toast('Configurazione salvata ✓', 'var(--success)');
+  setSyncStatus('configured');
+}
+
+function openSettingsModal() {
+  const cfg = gistLoadConfig();
+  document.getElementById('cfg-token').value = cfg.token || '';
+  document.getElementById('cfg-gist').value = cfg.gistId || '';
+  updateSyncStatusBox();
+  openModal('modal-settings');
+}
+
+function setSyncIndicator(state, text) {
+  const el = document.getElementById('sync-indicator');
+  const colors = { ok: 'var(--success)', err: 'var(--danger)', syncing: 'var(--warning)', off: 'var(--muted)' };
+  if (state === 'off') { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.color = colors[state] || 'var(--muted)';
+  el.textContent = text;
+}
+
+function setSyncStatus(state, extra) {
+  updateSyncStatusBox(state, extra);
+}
+
+function updateSyncStatusBox(state, extra) {
+  const box = document.getElementById('sync-status-box');
+  if (!box) return;
+  const cfg = gistLoadConfig();
+  if (!cfg.token) {
+    box.style.display = 'block';
+    box.style.background = 'rgba(122,127,142,0.1)';
+    box.style.border = '1px solid var(--border)';
+    box.innerHTML = '🔌 Non configurato — inserisci il token per abilitare la sincronizzazione.';
+    return;
+  }
+  if (!cfg.gistId) {
+    box.style.display = 'block';
+    box.style.background = 'rgba(255,165,2,0.1)';
+    box.style.border = '1px solid var(--warning)';
+    box.innerHTML = '⚠️ Token salvato. Nessun Gist ID — premi <strong>Sincronizza ora</strong> per crearne uno automaticamente.';
+    return;
+  }
+  if (state === 'ok') {
+    box.style.display = 'block';
+    box.style.background = 'rgba(46,213,115,0.1)';
+    box.style.border = '1px solid var(--success)';
+    box.innerHTML = `✅ Sincronizzato${extra ? ' — ' + extra : ''}.<br><span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Gist: ${cfg.gistId}</span>`;
+    // update gist id field too in case it was just created
+    document.getElementById('cfg-gist').value = cfg.gistId;
+    return;
+  }
+  if (state === 'err') {
+    box.style.display = 'block';
+    box.style.background = 'rgba(255,71,87,0.1)';
+    box.style.border = '1px solid var(--danger)';
+    box.innerHTML = `❌ Errore: ${extra || 'sincronizzazione fallita'}`;
+    return;
+  }
+  // default: configured
+  box.style.display = 'block';
+  box.style.background = 'rgba(71,200,255,0.1)';
+  box.style.border = '1px solid var(--accent3)';
+  box.innerHTML = `☁️ Gist configurato.<br><span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">ID: ${cfg.gistId}</span>`;
+}
+
+// Push local DB → Gist (create if no ID)
+async function gistPush() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token) { toast('Configura prima il token GitHub', 'var(--danger)'); return; }
+  setSyncIndicator('syncing', '↑ sync...');
+  toast('Caricamento in corso...', 'var(--warning)');
+  try {
+    const payload = {
+      description: 'MezziApp Database',
+      public: false,
+      files: { 'mezziapp_db.json': { content: JSON.stringify(db, null, 2) } }
+    };
+    let res, data;
+    if (cfg.gistId) {
+      // Update existing gist
+      res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${cfg.token}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      // Create new gist
+      res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${cfg.token}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+        body: JSON.stringify(payload)
+      });
+    }
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    data = await res.json();
+    // Save gist ID if newly created
+    if (!cfg.gistId) {
+      cfg.gistId = data.id;
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    }
+    localStorage.setItem('mezziapp_last_sync', new Date().toISOString());
+    setSyncIndicator('ok', '✓ sync');
+    setSyncStatus('ok', new Date().toLocaleTimeString('it-IT'));
+    toast('Dati caricati su Gist ✓', 'var(--success)');
+  } catch(e) {
+    setSyncIndicator('err', '✗ sync');
+    setSyncStatus('err', e.message);
+    toast('Errore: ' + e.message, 'var(--danger)');
+  }
+}
+
+// Pull Gist → local DB
+async function gistPull() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token || !cfg.gistId) { toast('Configura token e Gist ID prima', 'var(--danger)'); return; }
+  setSyncIndicator('syncing', '↓ sync...');
+  toast('Download in corso...', 'var(--warning)');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+      headers: { 'Authorization': `Bearer ${cfg.token}`, 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const file = data.files['mezziapp_db.json'];
+    if (!file) throw new Error('File mezziapp_db.json non trovato nel Gist');
+    // Fetch raw content (may be truncated)
+    let content = file.content;
+    if (file.truncated) {
+      const raw = await fetch(file.raw_url, { headers: { 'Authorization': `Bearer ${cfg.token}` } });
+      content = await raw.text();
+    }
+    const imported = JSON.parse(content);
+    if (!imported.vehicles || !imported.logs) throw new Error('Formato DB non valido');
+    db = imported;
+    saveDB(db);
+    localStorage.setItem('mezziapp_last_sync', new Date().toISOString());
+    setSyncIndicator('ok', '✓ sync');
+    setSyncStatus('ok', new Date().toLocaleTimeString('it-IT'));
+    renderDashboard();
+    toast('Dati scaricati dal Gist ✓', 'var(--success)');
+  } catch(e) {
+    setSyncIndicator('err', '✗ sync');
+    setSyncStatus('err', e.message);
+    toast('Errore: ' + e.message, 'var(--danger)');
+  }
+}
+
+// Smart sync: pull if gist is newer, push if local is newer
+async function gistSync() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token) { toast('Configura prima il token GitHub', 'var(--danger)'); openSettingsModal(); return; }
+  if (!cfg.gistId) {
+    // No gist yet: push to create
+    await gistPush();
+    return;
+  }
+  setSyncIndicator('syncing', '⟳ sync...');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+      headers: { 'Authorization': `Bearer ${cfg.token}`, 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const gistUpdated = new Date(data.updated_at);
+    const lastSync = localStorage.getItem('mezziapp_last_sync');
+    const localHasChanges = !lastSync || new Date(lastSync) < new Date(db._lastModified || 0);
+
+    // If we never synced or local was modified after last sync → push
+    // If gist is newer than last sync → pull
+    const gistIsNewer = lastSync && gistUpdated > new Date(lastSync);
+
+    if (gistIsNewer && !localHasChanges) {
+      await gistPull();
+    } else {
+      await gistPush();
+    }
+  } catch(e) {
+    setSyncIndicator('err', '✗');
+    toast('Errore sync: ' + e.message, 'var(--danger)');
+  }
+}
+
+// Auto-sync on startup (silent, after 1.5s delay)
+async function autoSync() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token || !cfg.gistId) {
+    setSyncIndicator('off', '');
+    return;
+  }
+  setSyncIndicator('syncing', '⟳');
+  await gistSync();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+// Mark DB as modified on every save
+const _origSaveDB = saveDB;
+function saveDB(d) {
+  d._lastModified = new Date().toISOString();
+  localStorage.setItem(DB_KEY, JSON.stringify(d));
+  // Auto-push after every save (debounced)
+  clearTimeout(saveDB._t);
+  saveDB._t = setTimeout(() => gistPush(), 3000);
+}
+
+renderDashboard();
+initNotifications();
+// Auto-sync on startup after short delay
+setTimeout(autoSync, 1500);
+</script>
+</body>
+</html>
