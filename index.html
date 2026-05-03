@@ -401,10 +401,6 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Chilometraggio attuale</label>
-        <input class="form-input" id="v-km" type="number" placeholder="0">
-      </div>
-      <div class="form-group">
         <label class="form-label">Colore identificativo</label>
         <div class="chips" id="color-chips">
           <div class="chip active" data-color="#e8ff47" onclick="selectColor(this,'#e8ff47')" style="border-color:#e8ff47;color:#e8ff47">●</div>
@@ -703,7 +699,6 @@ function renderDashboard() {
   } else {
     list.innerHTML = db.vehicles.map(v => {
       const logs = db.logs.filter(l => l.vehicleId === v.id);
-      const lastKm = logs.length ? Math.max(...logs.map(l => l.km||0)) : (v.km||0);
       const badges = getDeadlineBadges(v);
       return `<div class="card" onclick="openVehicle('${v.id}')">
         <div class="card-accent-bar" style="background:${v.color||'#e8ff47'}"></div>
@@ -714,10 +709,7 @@ function renderDashboard() {
             <div class="vehicle-plate">${v.plate ? esc(v.plate.toUpperCase()) : '—'}</div>
             <div class="vehicle-meta">${badges}</div>
           </div>
-          <div>
-            <div style="font-family:var(--font-mono);font-size:13px;color:var(--muted);text-align:right">${fmt(lastKm)}<br><span style="font-size:10px">km</span></div>
-            <div style="font-size:11px;color:var(--muted);text-align:right;margin-top:4px">${logs.length} log</div>
-          </div>
+          <div style="font-size:11px;color:var(--muted);text-align:right">${logs.length} log</div>
         </div>
       </div>`;
     }).join('');
@@ -769,7 +761,6 @@ function renderVehicleDetail() {
   const v = db.vehicles.find(x => x.id === currentVehicleId);
   if (!v) { showScreen('dashboard'); return; }
   const logs = db.logs.filter(l => l.vehicleId === v.id).sort((a,b) => new Date(b.date)-new Date(a.date));
-  const lastKm = logs.length ? Math.max(...logs.map(l=>l.km||0)) : (v.km||0);
   const totalCost = logs.reduce((s,l) => s+(parseFloat(l.cost)||0), 0);
 
   document.getElementById('vehicle-header-wrap').innerHTML = `
@@ -781,11 +772,7 @@ function renderVehicleDetail() {
           <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${v.plate?esc(v.plate.toUpperCase()):'—'}</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-        <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">KM</div>
-          <div style="font-family:var(--font-mono);font-size:14px;font-weight:600">${fmt(lastKm)}</div>
-        </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center">
           <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">LOG</div>
           <div style="font-family:var(--font-mono);font-size:14px;font-weight:600">${logs.length}</div>
@@ -831,14 +818,14 @@ function renderDeadlineStrip(v) {
     ${items.map(i => {
       const d = daysUntil(v[i.key]);
       const cl = d<0?'var(--danger)':d<=30?'var(--warning)':'var(--success)';
-      const txt = d<0?`Scad. ${Math.abs(d)}gg fa`:d===0?'Oggi':`${d}gg`;
-      return `<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border-radius:8px;padding:7px 10px;flex:1;min-width:0">
-        <div>${i.icon}</div>
-        <div style="min-width:0">
-          <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">${i.label}</div>
-          <div style="font-size:12px;font-family:var(--font-mono);white-space:nowrap">${fmtDate(v[i.key])}</div>
+      const txt = d<0?`-${Math.abs(d)}gg`:d===0?'Oggi':`+${d}gg`;
+      return `<div style="display:flex;flex-direction:column;gap:2px;background:var(--surface2);border-radius:8px;padding:7px 10px;flex:1;min-width:0;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:14px">${i.icon}</span>
+          <span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px">${i.label}</span>
         </div>
-        <div style="margin-left:auto;font-size:10px;color:${cl};font-family:var(--font-mono);white-space:nowrap">${txt}</div>
+        <div style="font-size:12px;font-family:var(--font-mono);color:var(--text);white-space:nowrap">${fmtDate(v[i.key])}</div>
+        <div style="font-size:11px;font-family:var(--font-mono);font-weight:700;color:${cl};white-space:nowrap">${txt}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -847,7 +834,7 @@ function renderDeadlineStrip(v) {
 function openAddVehicle() {
   editingVehicleId = null;
   document.getElementById('modal-vehicle-title').textContent = 'Nuovo Mezzo';
-  ['v-name','v-plate','v-km','v-revisione','v-assicurazione','v-bollo'].forEach(id => document.getElementById(id).value = '');
+  ['v-name','v-plate','v-revisione','v-assicurazione','v-bollo'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('v-type').value = '🚗';
   selectedColor = '#e8ff47';
   document.querySelectorAll('#color-chips .chip').forEach(c => { c.classList.remove('active'); if(c.dataset.color==='#e8ff47') c.classList.add('active'); });
@@ -861,7 +848,6 @@ function openEditVehicle(id) {
   document.getElementById('v-name').value = v.name||'';
   document.getElementById('v-plate').value = v.plate||'';
   document.getElementById('v-type').value = v.type||'🚗';
-  document.getElementById('v-km').value = v.km||'';
   document.getElementById('v-revisione').value = v.revisione||'';
   document.getElementById('v-assicurazione').value = v.assicurazione||'';
   document.getElementById('v-bollo').value = v.bollo||'';
@@ -876,7 +862,6 @@ function saveVehicle() {
     name, color: selectedColor,
     plate: document.getElementById('v-plate').value.trim().toUpperCase(),
     type: document.getElementById('v-type').value,
-    km: parseInt(document.getElementById('v-km').value)||0,
     revisione: document.getElementById('v-revisione').value,
     assicurazione: document.getElementById('v-assicurazione').value,
     bollo: document.getElementById('v-bollo').value,
@@ -990,8 +975,6 @@ function saveLog() {
     toast('Log aggiornato ✓','var(--success)');
   } else {
     db.logs.push({id:genId(),...data});
-    const v = db.vehicles.find(x=>x.id===currentVehicleId);
-    if (v && km>(v.km||0)) { v.km=km; saveDB(db); }
     toast('Log aggiunto ✓','var(--success)');
   }
   saveDB(db); closeModal('modal-log'); renderVehicleDetail();
@@ -1062,18 +1045,19 @@ function renderDeadlineGroup(title, items) {
     <div class="deadline-title">${title}</div>
     ${items.map(i => {
       const c = i.days<0?'var(--danger)':i.days<=30?'var(--warning)':'var(--success)';
-      const txt = i.days<0?`${Math.abs(i.days)} giorni fa`:i.days===0?'Oggi':`${i.days} giorni`;
-      return `<div class="deadline-item" onclick="openVehicle('${i.vehicle.id}')">
-        <div class="deadline-left">
-          <div class="deadline-icon">${i.type.icon}</div>
-          <div>
-            <div class="deadline-name">${i.type.label}</div>
-            <div class="deadline-veh">${esc(i.vehicle.name)}${i.vehicle.plate?' · '+esc(i.vehicle.plate.toUpperCase()):''}</div>
+      const txt = i.days<0?`-${Math.abs(i.days)}gg`:i.days===0?'Oggi':`${i.days}gg`;
+      return `<div class="deadline-item" onclick="openVehicle('${i.vehicle.id}')"
+        style="display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:10px;cursor:pointer">
+        <div style="font-size:22px;line-height:1">${i.type.icon}</div>
+        <div style="min-width:0">
+          <div style="font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.type.label}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${esc(i.vehicle.name)}${i.vehicle.plate?' · '+esc(i.vehicle.plate.toUpperCase()):''}
           </div>
         </div>
-        <div class="deadline-date">
-          <div style="color:${c};font-family:var(--font-mono)">${fmtDate(i.date)}</div>
-          <div class="deadline-days" style="color:${c}">${txt}</div>
+        <div style="text-align:right;flex-shrink:0;min-width:72px">
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);white-space:nowrap">${fmtDate(i.date)}</div>
+          <div style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${c};white-space:nowrap;margin-top:2px">${txt}</div>
         </div>
       </div>`;
     }).join('')}
@@ -1107,6 +1091,7 @@ function renderSummary() {
       <div class="stat-card"><div class="stat-label">Ord.</div><div class="stat-val">${ordCount}</div></div>
       <div class="stat-card"><div class="stat-label">Straord.</div><div class="stat-val">${extraCount}</div></div>
     </div>
+    <button class="btn btn-secondary btn-full" onclick="exportPDF()" style="margin-bottom:16px">📄 Esporta tabella interventi PDF</button>
     <div class="section-header"><div class="section-title">Per Mezzo</div></div>`;
   byVehicle.forEach(({v,logs,cost})=>{
     const pct=totalCost>0?(cost/totalCost*100).toFixed(0):0;
@@ -1132,6 +1117,154 @@ function renderSummary() {
     });
   }
   container.innerHTML=html;
+}
+
+// ============================================================
+// EXPORT PDF
+// ============================================================
+async function exportPDF() {
+  if (!window.jspdf) {
+    toast('Caricamento libreria PDF...', 'var(--warning)');
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  if (!window.jspdf) { toast('Errore caricamento libreria', 'var(--danger)'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const logs = [...db.logs].sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (!logs.length) { toast('Nessun intervento da esportare', 'var(--danger)'); return; }
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+
+  const C = {
+    bg:[12,13,16], surface:[19,21,26], surface2:[26,29,36],
+    border:[42,45,53], accent:[232,255,71], text:[240,240,240],
+    muted:[122,127,142], danger:[255,71,87], success:[46,213,115],
+    blue:[71,200,255],
+  };
+
+  function drawPageBg() {
+    doc.setFillColor(...C.bg); doc.rect(0,0,pw,ph,'F');
+  }
+  function drawHeader(pageNum, totalPages) {
+    doc.setFillColor(...C.surface); doc.rect(0,0,pw,18,'F');
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.3); doc.line(0,18,pw,18);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.setTextColor(...C.accent); doc.text('MezziApp',12,11.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.setTextColor(...C.muted); doc.text('Registro Interventi',38,11.5);
+    const d = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    doc.text(`${d}   —   Pag. ${pageNum} / ${totalPages}`, pw-12, 11.5, {align:'right'});
+  }
+  function drawFooter(totalCost) {
+    doc.setFillColor(...C.surface); doc.rect(0,ph-12,pw,12,'F');
+    doc.setDrawColor(...C.border); doc.line(0,ph-12,pw,ph-12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(...C.muted); doc.text(`Totale interventi: ${logs.length}`,12,ph-4.5);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...C.accent);
+    doc.text(`Spesa totale: € ${totalCost.toFixed(2)}`,pw-12,ph-4.5,{align:'right'});
+  }
+
+  const margin=10, tableW=pw-margin*2;
+  const cols=[
+    {label:'Data',      w:0.12},
+    {label:'Mezzo',     w:0.22},
+    {label:'Descrizione',w:0.34},
+    {label:'Tipo',      w:0.18},
+    {label:'Spesa',     w:0.14},
+  ];
+  let cx=margin;
+  cols.forEach(c=>{c.x=cx; c.absW=tableW*c.w; cx+=c.absW;});
+
+  const rowH=9, headerH=10, topY=22, bottomY=ph-14;
+  const rowsPerPage=Math.floor((bottomY-topY-headerH)/rowH);
+
+  function drawColHeaders(y) {
+    doc.setFillColor(...C.surface2); doc.rect(margin,y,tableW,headerH,'F');
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.25);
+    doc.line(margin,y,margin+tableW,y);
+    doc.line(margin,y+headerH,margin+tableW,y+headerH);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.setTextColor(...C.muted);
+    cols.forEach(c=>doc.text(c.label.toUpperCase(),c.x+3,y+6.5));
+    return y+headerH;
+  }
+
+  const typeMap={
+    ordinaria:    {label:'Ordinaria',    color:C.blue},
+    straordinaria:{label:'Straordinaria',color:[255,107,53]},
+    revisione:    {label:'Revisione',    color:C.success},
+    assicurazione:{label:'Assicurazione',color:[162,155,254]},
+    bollo:        {label:'Bollo',        color:[255,165,2]},
+    carburante:   {label:'Rifornimento', color:C.accent},
+    altro:        {label:'Altro',        color:C.muted},
+  };
+
+  const totalCost=logs.reduce((s,l)=>s+(parseFloat(l.cost)||0),0);
+  const rows=logs.map(l=>{
+    const v=db.vehicles.find(x=>x.id===l.vehicleId);
+    const tm=typeMap[l.type]||{label:l.type,color:C.muted};
+    return {
+      date:fmtDate(l.date),
+      vehicle:v?(v.name+(v.plate?'\n'+v.plate.toUpperCase():'')):' —',
+      desc:l.description||'—',
+      type:tm.label, typeColor:tm.color,
+      cost:l.cost?'€ '+parseFloat(l.cost).toFixed(2):'—',
+    };
+  });
+
+  const totalPages=Math.ceil(rows.length/rowsPerPage);
+
+  for(let p=0;p<totalPages;p++){
+    if(p>0) doc.addPage();
+    drawPageBg();
+    drawHeader(p+1,totalPages);
+    if(p===totalPages-1) drawFooter(totalCost);
+    let y=drawColHeaders(topY);
+    const slice=rows.slice(p*rowsPerPage,(p+1)*rowsPerPage);
+    slice.forEach((row,i)=>{
+      doc.setFillColor(...(i%2===0?C.surface:[16,18,23]));
+      doc.rect(margin,y,tableW,rowH,'F');
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.15);
+      doc.line(margin,y+rowH,margin+tableW,y+rowH);
+      doc.setFillColor(...row.typeColor);
+      doc.rect(margin,y,2,rowH,'F');
+      const ty=y+5.8;
+      // Date
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.setTextColor(...C.muted); doc.text(row.date,cols[0].x+4,ty);
+      // Vehicle
+      const vl=row.vehicle.split('\n');
+      doc.setTextColor(...C.text); doc.setFontSize(7.5);
+      doc.text(vl[0],cols[1].x+3,ty-(vl[1]?1.5:0));
+      if(vl[1]){doc.setFontSize(6.5);doc.setTextColor(...C.muted);doc.text(vl[1],cols[1].x+3,ty+2.5);}
+      // Description
+      doc.setFontSize(7.5); doc.setTextColor(...C.text);
+      const maxW=cols[2].absW-6; let dt=row.desc;
+      if(doc.getTextWidth(dt)>maxW){while(doc.getTextWidth(dt+'…')>maxW&&dt.length>0)dt=dt.slice(0,-1);dt+='…';}
+      doc.text(dt,cols[2].x+3,ty);
+      // Type
+      doc.setFontSize(7); doc.setTextColor(...row.typeColor);
+      doc.setFont('helvetica','bold'); doc.text(row.type,cols[3].x+3,ty);
+      // Cost
+      doc.setFont('helvetica',row.cost!=='—'?'bold':'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...(row.cost!=='—'?C.accent:C.muted));
+      doc.text(row.cost,cols[4].x+cols[4].absW-4,ty,{align:'right'});
+      y+=rowH;
+    });
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
+    doc.rect(margin,topY,tableW,headerH+slice.length*rowH);
+  }
+
+  doc.save(`mezziapp_interventi_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('PDF esportato ✓','var(--success)');
 }
 
 // ============================================================
