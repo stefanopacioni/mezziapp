@@ -1,7 +1,7 @@
 // MezziApp Service Worker
 // Bump this version string whenever you deploy an update to GitHub Pages.
 // The browser detects the change, installs the new SW, and refreshes the cache.
-const CACHE_VERSION = 'mezziapp-v1';
+const CACHE_VERSION = 'mezziapp-v2';
 const ASSETS = [
   './',
   './index.html',
