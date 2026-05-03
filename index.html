@@ -1138,133 +1138,207 @@ async function exportPDF() {
   const logs = [...db.logs].sort((a, b) => new Date(b.date) - new Date(a.date));
   if (!logs.length) { toast('Nessun intervento da esportare', 'var(--danger)'); return; }
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
+  // Portrait A4
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();   // 210mm
+  const ph = doc.internal.pageSize.getHeight();  // 297mm
 
+  // Print-friendly palette (white background)
   const C = {
-    bg:[12,13,16], surface:[19,21,26], surface2:[26,29,36],
-    border:[42,45,53], accent:[232,255,71], text:[240,240,240],
-    muted:[122,127,142], danger:[255,71,87], success:[46,213,115],
-    blue:[71,200,255],
+    white:   [255, 255, 255],
+    bg:      [255, 255, 255],
+    headerBg:[30,  30,  30],   // near-black header bar
+    rowEven: [255, 255, 255],
+    rowOdd:  [247, 248, 250],
+    colHead: [240, 242, 245],
+    border:  [210, 213, 220],
+    text:    [30,  30,  30],
+    muted:   [110, 115, 130],
+    accent:  [30,  30,  30],   // costs in dark (readable on white)
+    // type colors — darker, print-safe
+    blue:    [30,  100, 200],
+    orange:  [200, 80,  20],
+    green:   [20,  140, 70],
+    purple:  [110, 80,  200],
+    yellow:  [160, 110, 0],
+    red:     [180, 40,  40],
+    gray:    [100, 105, 115],
   };
 
-  function drawPageBg() {
-    doc.setFillColor(...C.bg); doc.rect(0,0,pw,ph,'F');
-  }
+  // ── Header bar ────────────────────────────────────────────
   function drawHeader(pageNum, totalPages) {
-    doc.setFillColor(...C.surface); doc.rect(0,0,pw,18,'F');
-    doc.setDrawColor(...C.border); doc.setLineWidth(0.3); doc.line(0,18,pw,18);
-    doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.setTextColor(...C.accent); doc.text('MezziApp',12,11.5);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.setTextColor(...C.muted); doc.text('Registro Interventi',38,11.5);
-    const d = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    doc.text(`${d}   —   Pag. ${pageNum} / ${totalPages}`, pw-12, 11.5, {align:'right'});
+    // Dark top bar
+    doc.setFillColor(...C.headerBg);
+    doc.rect(0, 0, pw, 20, 'F');
+    // App name
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('MezziApp', 12, 13);
+    // Subtitle
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(180, 180, 180);
+    doc.text('Registro Interventi', 45, 13);
+    // Date + page (right)
+    const d = new Date().toLocaleDateString('it-IT', {day:'2-digit', month:'long', year:'numeric'});
+    doc.setFontSize(8);
+    doc.setTextColor(180, 180, 180);
+    doc.text(`${d}   ·   pag. ${pageNum}/${totalPages}`, pw - 12, 13, { align: 'right' });
   }
+
+  // ── Footer ────────────────────────────────────────────────
   function drawFooter(totalCost) {
-    doc.setFillColor(...C.surface); doc.rect(0,ph-12,pw,12,'F');
-    doc.setDrawColor(...C.border); doc.line(0,ph-12,pw,ph-12);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    doc.setTextColor(...C.muted); doc.text(`Totale interventi: ${logs.length}`,12,ph-4.5);
-    doc.setFont('helvetica','bold'); doc.setTextColor(...C.accent);
-    doc.text(`Spesa totale: € ${totalCost.toFixed(2)}`,pw-12,ph-4.5,{align:'right'});
-  }
-
-  const margin=10, tableW=pw-margin*2;
-  const cols=[
-    {label:'Data',      w:0.12},
-    {label:'Mezzo',     w:0.22},
-    {label:'Descrizione',w:0.34},
-    {label:'Tipo',      w:0.18},
-    {label:'Spesa',     w:0.14},
-  ];
-  let cx=margin;
-  cols.forEach(c=>{c.x=cx; c.absW=tableW*c.w; cx+=c.absW;});
-
-  const rowH=9, headerH=10, topY=22, bottomY=ph-14;
-  const rowsPerPage=Math.floor((bottomY-topY-headerH)/rowH);
-
-  function drawColHeaders(y) {
-    doc.setFillColor(...C.surface2); doc.rect(margin,y,tableW,headerH,'F');
-    doc.setDrawColor(...C.border); doc.setLineWidth(0.25);
-    doc.line(margin,y,margin+tableW,y);
-    doc.line(margin,y+headerH,margin+tableW,y+headerH);
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.4);
+    doc.line(12, ph - 14, pw - 12, ph - 14);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
     doc.setTextColor(...C.muted);
-    cols.forEach(c=>doc.text(c.label.toUpperCase(),c.x+3,y+6.5));
-    return y+headerH;
+    doc.text(`Totale interventi: ${logs.length}`, 12, ph - 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.text);
+    doc.text(`Spesa totale: € ${totalCost.toFixed(2)}`, pw - 12, ph - 8, { align: 'right' });
   }
 
-  const typeMap={
-    ordinaria:    {label:'Ordinaria',    color:C.blue},
-    straordinaria:{label:'Straordinaria',color:[255,107,53]},
-    revisione:    {label:'Revisione',    color:C.success},
-    assicurazione:{label:'Assicurazione',color:[162,155,254]},
-    bollo:        {label:'Bollo',        color:[255,165,2]},
-    carburante:   {label:'Rifornimento', color:C.accent},
-    altro:        {label:'Altro',        color:C.muted},
+  // ── Columns ───────────────────────────────────────────────
+  const margin = 12;
+  const tableW = pw - margin * 2;
+  const cols = [
+    { label: 'Data',          w: 0.13 },
+    { label: 'Mezzo',         w: 0.21 },
+    { label: 'Descrizione',   w: 0.36 },
+    { label: 'Tipo',          w: 0.17 },
+    { label: 'Spesa',         w: 0.13 },
+  ];
+  let cx = margin;
+  cols.forEach(c => { c.x = cx; c.absW = tableW * c.w; cx += c.absW; });
+
+  const rowH = 9, headerH = 9, topY = 24, bottomY = ph - 18;
+  const rowsPerPage = Math.floor((bottomY - topY - headerH) / rowH);
+
+  // ── Column headers ────────────────────────────────────────
+  function drawColHeaders(y) {
+    doc.setFillColor(...C.colHead);
+    doc.rect(margin, y, tableW, headerH, 'F');
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, margin + tableW, y);
+    doc.line(margin, y + headerH, margin + tableW, y + headerH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...C.muted);
+    cols.forEach(c => doc.text(c.label.toUpperCase(), c.x + 3, y + 6));
+    return y + headerH;
+  }
+
+  // ── Type map ──────────────────────────────────────────────
+  const typeMap = {
+    ordinaria:     { label: 'Ordinaria',     color: C.blue   },
+    straordinaria: { label: 'Straordinaria', color: C.orange },
+    revisione:     { label: 'Revisione',     color: C.green  },
+    assicurazione: { label: 'Assicurazione', color: C.purple },
+    bollo:         { label: 'Bollo',         color: C.yellow },
+    carburante:    { label: 'Rifornimento',  color: C.red    },
+    altro:         { label: 'Altro',         color: C.gray   },
   };
 
-  const totalCost=logs.reduce((s,l)=>s+(parseFloat(l.cost)||0),0);
-  const rows=logs.map(l=>{
-    const v=db.vehicles.find(x=>x.id===l.vehicleId);
-    const tm=typeMap[l.type]||{label:l.type,color:C.muted};
+  const totalCost = logs.reduce((s, l) => s + (parseFloat(l.cost) || 0), 0);
+  const rows = logs.map(l => {
+    const v = db.vehicles.find(x => x.id === l.vehicleId);
+    const tm = typeMap[l.type] || { label: l.type, color: C.gray };
     return {
-      date:fmtDate(l.date),
-      vehicle:v?(v.name+(v.plate?'\n'+v.plate.toUpperCase():'')):' —',
-      desc:l.description||'—',
-      type:tm.label, typeColor:tm.color,
-      cost:l.cost?'€ '+parseFloat(l.cost).toFixed(2):'—',
+      date:      fmtDate(l.date),
+      vehicle:   v ? (v.name + (v.plate ? '\n' + v.plate.toUpperCase() : '')) : '—',
+      desc:      l.description || '—',
+      type:      tm.label,
+      typeColor: tm.color,
+      cost:      l.cost ? '€ ' + parseFloat(l.cost).toFixed(2) : '—',
     };
   });
 
-  const totalPages=Math.ceil(rows.length/rowsPerPage);
+  const totalPages = Math.ceil(rows.length / rowsPerPage);
 
-  for(let p=0;p<totalPages;p++){
-    if(p>0) doc.addPage();
-    drawPageBg();
-    drawHeader(p+1,totalPages);
-    if(p===totalPages-1) drawFooter(totalCost);
-    let y=drawColHeaders(topY);
-    const slice=rows.slice(p*rowsPerPage,(p+1)*rowsPerPage);
-    slice.forEach((row,i)=>{
-      doc.setFillColor(...(i%2===0?C.surface:[16,18,23]));
-      doc.rect(margin,y,tableW,rowH,'F');
-      doc.setDrawColor(...C.border); doc.setLineWidth(0.15);
-      doc.line(margin,y+rowH,margin+tableW,y+rowH);
+  for (let p = 0; p < totalPages; p++) {
+    if (p > 0) doc.addPage();
+
+    // White page background
+    doc.setFillColor(...C.white);
+    doc.rect(0, 0, pw, ph, 'F');
+
+    drawHeader(p + 1, totalPages);
+    if (p === totalPages - 1) drawFooter(totalCost);
+
+    let y = drawColHeaders(topY);
+    const slice = rows.slice(p * rowsPerPage, (p + 1) * rowsPerPage);
+
+    slice.forEach((row, i) => {
+      // Alternating row background
+      doc.setFillColor(...(i % 2 === 0 ? C.rowEven : C.rowOdd));
+      doc.rect(margin, y, tableW, rowH, 'F');
+
+      // Row separator
+      doc.setDrawColor(...C.border);
+      doc.setLineWidth(0.15);
+      doc.line(margin, y + rowH, margin + tableW, y + rowH);
+
+      // Left type color bar
       doc.setFillColor(...row.typeColor);
-      doc.rect(margin,y,2,rowH,'F');
-      const ty=y+5.8;
+      doc.rect(margin, y, 2.5, rowH, 'F');
+
+      const ty = y + 5.8;
+
       // Date
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.setTextColor(...C.muted); doc.text(row.date,cols[0].x+4,ty);
-      // Vehicle
-      const vl=row.vehicle.split('\n');
-      doc.setTextColor(...C.text); doc.setFontSize(7.5);
-      doc.text(vl[0],cols[1].x+3,ty-(vl[1]?1.5:0));
-      if(vl[1]){doc.setFontSize(6.5);doc.setTextColor(...C.muted);doc.text(vl[1],cols[1].x+3,ty+2.5);}
-      // Description
-      doc.setFontSize(7.5); doc.setTextColor(...C.text);
-      const maxW=cols[2].absW-6; let dt=row.desc;
-      if(doc.getTextWidth(dt)>maxW){while(doc.getTextWidth(dt+'…')>maxW&&dt.length>0)dt=dt.slice(0,-1);dt+='…';}
-      doc.text(dt,cols[2].x+3,ty);
-      // Type
-      doc.setFontSize(7); doc.setTextColor(...row.typeColor);
-      doc.setFont('helvetica','bold'); doc.text(row.type,cols[3].x+3,ty);
-      // Cost
-      doc.setFont('helvetica',row.cost!=='—'?'bold':'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      doc.setTextColor(...(row.cost!=='—'?C.accent:C.muted));
-      doc.text(row.cost,cols[4].x+cols[4].absW-4,ty,{align:'right'});
-      y+=rowH;
+      doc.setTextColor(...C.muted);
+      doc.text(row.date, cols[0].x + 4, ty);
+
+      // Vehicle name + plate
+      const vl = row.vehicle.split('\n');
+      doc.setTextColor(...C.text);
+      doc.setFontSize(7.5);
+      doc.text(vl[0], cols[1].x + 3, ty - (vl[1] ? 1.5 : 0));
+      if (vl[1]) {
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.muted);
+        doc.text(vl[1], cols[1].x + 3, ty + 2.5);
+      }
+
+      // Description (truncate if needed)
+      doc.setFontSize(7.5);
+      doc.setTextColor(...C.text);
+      const maxW = cols[2].absW - 6;
+      let dt = row.desc;
+      if (doc.getTextWidth(dt) > maxW) {
+        while (doc.getTextWidth(dt + '…') > maxW && dt.length > 0) dt = dt.slice(0, -1);
+        dt += '…';
+      }
+      doc.text(dt, cols[2].x + 3, ty);
+
+      // Type (colored)
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...row.typeColor);
+      doc.text(row.type, cols[3].x + 3, ty);
+
+      // Cost
+      doc.setFont('helvetica', row.cost !== '—' ? 'bold' : 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...(row.cost !== '—' ? C.text : C.muted));
+      doc.text(row.cost, cols[4].x + cols[4].absW - 3, ty, { align: 'right' });
+
+      y += rowH;
     });
-    doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
-    doc.rect(margin,topY,tableW,headerH+slice.length*rowH);
+
+    // Outer table border
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.4);
+    doc.rect(margin, topY, tableW, headerH + slice.length * rowH);
   }
 
   doc.save(`mezziapp_interventi_${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('PDF esportato ✓','var(--success)');
+  toast('PDF esportato ✓', 'var(--success)');
 }
 
 // ============================================================
