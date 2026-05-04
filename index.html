@@ -1412,9 +1412,268 @@ function daysUntil(ds){if(!ds)return 9999;const t=new Date(ds),td=new Date();td.
 function typeLabel(t){return{ordinaria:'Ordinaria',straordinaria:'Straordinaria',revisione:'Revisione',assicurazione:'Assicurazione',bollo:'Bollo',carburante:'Rifornimento',altro:'Altro'}[t]||t;}
 
 // ============================================================
-// GIST SYNC
+// GIST SYNC — logica sicura
 // ============================================================
+// La configurazione (token + gistId) viene salvata in localStorage
+// MA anche nell'URL hash (#gistId=xxx) così sopravvive alla pulizia
+// della cache del browser (l'hash non viene cancellato).
+//
+// Regole fondamentali:
+//  - All'avvio: SEMPRE pull dal Gist, mai push automatico
+//  - Push: SOLO quando l'utente salva attivamente un dato
+//  - Se locale è vuoto e Gist ha dati → pull silenzioso automatico
+//  - Se locale è vuoto e Gist è vuoto → non fare nulla
+//  - Non creare mai un nuovo Gist se ne esiste già uno configurato
+// ============================================================
+
 const CFG_KEY = 'mezziapp_cfg';
+
+// Salva/legge config da localStorage + hash URL
+function gistLoadConfig() {
+  // Prima prova localStorage
+  let cfg = {};
+  try { cfg = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch {}
+
+  // Se manca il gistId, prova a recuperarlo dall'hash URL
+  if (!cfg.gistId) {
+    const hash = window.location.hash;
+    const match = hash.match(/gistId=([a-f0-9]+)/);
+    if (match) cfg.gistId = match[1];
+  }
+  return cfg;
+}
+
+function gistPersistConfig(cfg) {
+  // Salva in localStorage
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  // Salva gistId anche nell'hash URL (sopravvive alla pulizia cache)
+  if (cfg.gistId) {
+    const newHash = `#gistId=${cfg.gistId}`;
+    history.replaceState(null, '', newHash);
+  }
+}
+
+function gistSaveConfig() {
+  const token = document.getElementById('cfg-token').value.trim();
+  const gistId = document.getElementById('cfg-gist').value.trim();
+  if (!token) { toast('Inserisci il token GitHub', 'var(--danger)'); return; }
+  const cfg = { token, gistId };
+  gistPersistConfig(cfg);
+  toast('Configurazione salvata ✓', 'var(--success)');
+  updateSyncStatusBox();
+}
+
+function openSettingsModal() {
+  const cfg = gistLoadConfig();
+  document.getElementById('cfg-token').value = cfg.token || '';
+  document.getElementById('cfg-gist').value = cfg.gistId || '';
+  updateSyncStatusBox();
+  openModal('modal-settings');
+}
+
+function setSyncIndicator(state, text) {
+  const el = document.getElementById('sync-indicator');
+  const colors = { ok:'var(--success)', err:'var(--danger)', syncing:'var(--warning)' };
+  if (state === 'off') { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.color = colors[state] || 'var(--muted)';
+  el.textContent = text;
+}
+
+function setSyncStatus(state, extra) { updateSyncStatusBox(state, extra); }
+
+function updateSyncStatusBox(state, extra) {
+  const box = document.getElementById('sync-status-box');
+  if (!box) return;
+  const cfg = gistLoadConfig();
+  if (!cfg.token) {
+    box.style.cssText = 'display:block;background:rgba(122,127,142,0.1);border:1px solid var(--border);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5';
+    box.innerHTML = '🔌 Non configurato — inserisci il token per abilitare la sincronizzazione.';
+    return;
+  }
+  if (!cfg.gistId) {
+    box.style.cssText = 'display:block;background:rgba(255,165,2,0.1);border:1px solid var(--warning);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5';
+    box.innerHTML = '⚠️ Token salvato. Nessun Gist ID — premi <strong>Sincronizza ora</strong> per creare il Gist.';
+    return;
+  }
+  if (state === 'ok') {
+    box.style.cssText = 'display:block;background:rgba(46,213,115,0.1);border:1px solid var(--success);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5';
+    box.innerHTML = `✅ Sincronizzato${extra?' — '+extra:''}.<br><span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Gist ID: ${cfg.gistId}</span>`;
+    document.getElementById('cfg-gist').value = cfg.gistId;
+    return;
+  }
+  if (state === 'err') {
+    box.style.cssText = 'display:block;background:rgba(255,71,87,0.1);border:1px solid var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5';
+    box.innerHTML = `❌ Errore: ${extra||'sincronizzazione fallita'}`;
+    return;
+  }
+  box.style.cssText = 'display:block;background:rgba(71,200,255,0.1);border:1px solid var(--accent3);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5';
+  box.innerHTML = `☁️ Configurato.<br><span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Gist ID: ${cfg.gistId}</span>`;
+}
+
+// ── PUSH locale → Gist ───────────────────────────────────────
+// Crea il Gist solo se non esiste ancora un ID configurato.
+// Se esiste, aggiorna sempre quello — mai crearne uno nuovo.
+async function gistPush() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token) { setSyncIndicator('off',''); return; }
+
+  // Blocca push se il DB locale è vuoto (nessun veicolo e nessun log)
+  if (!db.vehicles.length && !db.logs.length) {
+    setSyncIndicator('off','');
+    return;
+  }
+
+  setSyncIndicator('syncing', '↑');
+  try {
+    const payload = {
+      description: 'MezziApp Database',
+      public: false,
+      files: { 'mezziapp_db.json': { content: JSON.stringify(db, null, 2) } }
+    };
+    let res;
+    if (cfg.gistId) {
+      res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${cfg.token}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      // Prima volta: crea il Gist
+      res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${cfg.token}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+        body: JSON.stringify(payload)
+      });
+    }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || `HTTP ${res.status}`); }
+    const data = await res.json();
+    if (!cfg.gistId) {
+      cfg.gistId = data.id;
+      gistPersistConfig(cfg); // salva ID in localStorage + hash URL
+    }
+    setSyncIndicator('ok', '✓');
+    setSyncStatus('ok', new Date().toLocaleTimeString('it-IT'));
+  } catch(e) {
+    setSyncIndicator('err', '✗');
+    setSyncStatus('err', e.message);
+  }
+}
+
+// ── PULL Gist → locale ───────────────────────────────────────
+async function gistPull() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token || !cfg.gistId) { toast('Configura token e Gist ID prima', 'var(--danger)'); return; }
+  setSyncIndicator('syncing', '↓');
+  toast('Download in corso...', 'var(--warning)');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+      headers: { 'Authorization': `Bearer ${cfg.token}`, 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const file = data.files['mezziapp_db.json'];
+    if (!file) throw new Error('File mezziapp_db.json non trovato nel Gist');
+    let content = file.content;
+    if (file.truncated) {
+      const raw = await fetch(file.raw_url, { headers: { 'Authorization': `Bearer ${cfg.token}` } });
+      content = await raw.text();
+    }
+    const imported = JSON.parse(content);
+    if (!imported.vehicles || !imported.logs) throw new Error('Formato DB non valido');
+    db = imported;
+    // Salva senza triggerare il push automatico
+    db._lastModified = new Date().toISOString();
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+    setSyncIndicator('ok', '✓');
+    setSyncStatus('ok', new Date().toLocaleTimeString('it-IT'));
+    renderDashboard();
+    toast('Dati scaricati dal Gist ✓', 'var(--success)');
+  } catch(e) {
+    setSyncIndicator('err', '✗');
+    setSyncStatus('err', e.message);
+    toast('Errore: ' + e.message, 'var(--danger)');
+  }
+}
+
+// ── SYNC manuale (bottone) ────────────────────────────────────
+async function gistSync() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token) { toast('Configura prima il token GitHub', 'var(--danger)'); return; }
+  if (!cfg.gistId) {
+    // Nessun Gist ancora: crea e carica
+    await gistPush();
+    return;
+  }
+  // Con Gist ID configurato: fai sempre pull prima di tutto
+  await gistPull();
+}
+
+// ── AUTO-SYNC all'avvio: SOLO pull, mai push ──────────────────
+async function autoSync() {
+  const cfg = gistLoadConfig();
+  if (!cfg.token || !cfg.gistId) { setSyncIndicator('off',''); return; }
+
+  setSyncIndicator('syncing', '⟳');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+      headers: { 'Authorization': `Bearer ${cfg.token}`, 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const file = data.files['mezziapp_db.json'];
+    if (!file) { setSyncIndicator('ok','✓'); return; }
+    let content = file.content;
+    if (file.truncated) {
+      const raw = await fetch(file.raw_url, { headers: { 'Authorization': `Bearer ${cfg.token}` } });
+      content = await raw.text();
+    }
+    const imported = JSON.parse(content);
+    if (!imported.vehicles || !imported.logs) { setSyncIndicator('ok','✓'); return; }
+
+    const gistHasData = imported.vehicles.length > 0 || imported.logs.length > 0;
+    const localEmpty  = !db.vehicles.length && !db.logs.length;
+
+    if (gistHasData && localEmpty) {
+      // Locale vuoto, Gist ha dati → pull silenzioso
+      db = imported;
+      db._lastModified = new Date().toISOString();
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      renderDashboard();
+      setSyncIndicator('ok', '✓');
+      toast('Dati ripristinati dal Gist ✓', 'var(--success)');
+    } else if (gistHasData) {
+      // Entrambi hanno dati → pull (il Gist è la fonte di verità)
+      db = imported;
+      db._lastModified = new Date().toISOString();
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      renderDashboard();
+      setSyncIndicator('ok', '✓');
+    } else {
+      setSyncIndicator('ok', '✓');
+    }
+  } catch(e) {
+    setSyncIndicator('err', '✗');
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function saveDB(d) {
+  d._lastModified = new Date().toISOString();
+  localStorage.setItem(DB_KEY, JSON.stringify(d));
+  // Push automatico debounced — solo se DB non è vuoto
+  clearTimeout(saveDB._t);
+  saveDB._t = setTimeout(() => gistPush(), 3000);
+}
+
+renderDashboard();
+initNotifications();
+setTimeout(autoSync, 1500);
+</script>
+</body>
+</html>
 
 function gistLoadConfig() {
   try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
