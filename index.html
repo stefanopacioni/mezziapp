@@ -569,6 +569,17 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
         <button class="btn btn-secondary btn-full" onclick="gistPull()">⬇️ Scarica Gist → locale</button>
       </div>
 
+      <!-- LINK PERSONALE -->
+      <div id="personal-link-section" style="display:none;margin-bottom:20px">
+        <div style="border-top:1px solid var(--border);margin-bottom:16px"></div>
+        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;margin-bottom:4px">🔗 Il tuo link personale</div>
+        <p style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:10px">
+          Questo link contiene il tuo Gist ID. <strong style="color:var(--text)">Salvalo nei preferiti</strong> o usalo per reinstallare la PWA — anche dopo aver pulito il browser, basterà riaprire questo link e reinserire solo il token per recuperare tutti i dati.
+        </p>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--accent3);word-break:break-all;margin-bottom:8px" id="personal-link-display"></div>
+        <button class="btn btn-secondary btn-full" onclick="copyPersonalLink()">📋 Copia link</button>
+      </div>
+
       <div style="border-top:1px solid var(--border);margin:16px 0"></div>
 
       <!-- BACKUP MANUALE -->
@@ -1428,29 +1439,78 @@ function typeLabel(t){return{ordinaria:'Ordinaria',straordinaria:'Straordinaria'
 
 const CFG_KEY = 'mezziapp_cfg';
 
-// Salva/legge config da localStorage + hash URL
+// Legge il Gist ID dall'hash URL (fonte primaria, sopravvive alla pulizia browser)
+// Il token sta solo in localStorage (non va mai nell'URL per sicurezza)
 function gistLoadConfig() {
-  // Prima prova localStorage
   let cfg = {};
   try { cfg = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch {}
-
-  // Se manca il gistId, prova a recuperarlo dall'hash URL
-  if (!cfg.gistId) {
-    const hash = window.location.hash;
-    const match = hash.match(/gistId=([a-f0-9]+)/);
-    if (match) cfg.gistId = match[1];
-  }
+  // Gist ID: priorità all'hash URL, poi localStorage
+  const hashId = getGistIdFromHash();
+  if (hashId) cfg.gistId = hashId;
   return cfg;
 }
 
+function getGistIdFromHash() {
+  try {
+    const hash = window.location.hash.replace('#','');
+    const params = new URLSearchParams(hash);
+    return params.get('gistId') || null;
+  } catch { return null; }
+}
+
 function gistPersistConfig(cfg) {
-  // Salva in localStorage
+  // Salva token in localStorage
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-  // Salva gistId anche nell'hash URL (sopravvive alla pulizia cache)
+  // Scrivi il Gist ID nell'hash URL — questa è la fonte di verità
   if (cfg.gistId) {
     const newHash = `#gistId=${cfg.gistId}`;
     history.replaceState(null, '', newHash);
+    updatePersonalLink(cfg.gistId);
   }
+}
+
+function updatePersonalLink(gistId) {
+  const section = document.getElementById('personal-link-section');
+  const display = document.getElementById('personal-link-display');
+  if (!gistId) { if(section) section.style.display='none'; return; }
+  // Costruisce il link usando l'URL base senza hash
+  const base = window.location.href.split('#')[0];
+  const link = `${base}#gistId=${gistId}`;
+  if (section) section.style.display = 'block';
+  if (display) display.textContent = link;
+}
+
+function copyPersonalLink() {
+  const display = document.getElementById('personal-link-display');
+  if (!display || !display.textContent) return;
+  navigator.clipboard.writeText(display.textContent).then(() => {
+    toast('Link copiato! Salvalo nei preferiti 🔖', 'var(--success)');
+  }).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = display.textContent;
+    document.body.appendChild(el);
+    el.select(); document.execCommand('copy');
+    document.body.removeChild(el);
+    toast('Link copiato! Salvalo nei preferiti 🔖', 'var(--success)');
+  });
+}
+
+function openSettingsModal() {
+  const cfg = gistLoadConfig();
+  document.getElementById('cfg-token').value = cfg.token || '';
+  document.getElementById('cfg-gist').value = cfg.gistId || '';
+  updateSyncStatusBox();
+  updatePersonalLink(cfg.gistId);
+  openModal('modal-settings');
+}
+
+function setSyncIndicator(state, text) {
+  const el = document.getElementById('sync-indicator');
+  const colors = { ok:'var(--success)', err:'var(--danger)', syncing:'var(--warning)' };
+  if (state === 'off') { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.color = colors[state] || 'var(--muted)';
+  el.textContent = text;
 }
 
 function gistSaveConfig() {
@@ -1461,20 +1521,8 @@ function gistSaveConfig() {
   gistPersistConfig(cfg);
   toast('Configurazione salvata ✓', 'var(--success)');
   updateSyncStatusBox();
+  updatePersonalLink(gistId);
 }
-
-function openSettingsModal() {
-  const cfg = gistLoadConfig();
-  document.getElementById('cfg-token').value = cfg.token || '';
-  document.getElementById('cfg-gist').value = cfg.gistId || '';
-  updateSyncStatusBox();
-  openModal('modal-settings');
-}
-
-function setSyncIndicator(state, text) {
-  const el = document.getElementById('sync-indicator');
-  const colors = { ok:'var(--success)', err:'var(--danger)', syncing:'var(--warning)' };
-  if (state === 'off') { el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.style.color = colors[state] || 'var(--muted)';
   el.textContent = text;
@@ -1550,7 +1598,8 @@ async function gistPush() {
     const data = await res.json();
     if (!cfg.gistId) {
       cfg.gistId = data.id;
-      gistPersistConfig(cfg); // salva ID in localStorage + hash URL
+      gistPersistConfig(cfg);
+      updatePersonalLink(cfg.gistId);
     }
     setSyncIndicator('ok', '✓');
     setSyncStatus('ok', new Date().toLocaleTimeString('it-IT'));
@@ -1613,7 +1662,8 @@ async function gistSync() {
 async function autoSync() {
   const cfg = gistLoadConfig();
   if (!cfg.token || !cfg.gistId) { setSyncIndicator('off',''); return; }
-
+  // Assicura che il Gist ID sia sempre nell'hash URL
+  gistPersistConfig(cfg);
   setSyncIndicator('syncing', '⟳');
   try {
     const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
@@ -1675,34 +1725,6 @@ setTimeout(autoSync, 1500);
 </body>
 </html>
 
-function gistLoadConfig() {
-  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
-}
-function gistSaveConfig() {
-  const token = document.getElementById('cfg-token').value.trim();
-  const gistId = document.getElementById('cfg-gist').value.trim();
-  if (!token) { toast('Inserisci il token GitHub', 'var(--danger)'); return; }
-  localStorage.setItem(CFG_KEY, JSON.stringify({ token, gistId }));
-  toast('Configurazione salvata ✓', 'var(--success)');
-  setSyncStatus('configured');
-}
-
-function openSettingsModal() {
-  const cfg = gistLoadConfig();
-  document.getElementById('cfg-token').value = cfg.token || '';
-  document.getElementById('cfg-gist').value = cfg.gistId || '';
-  updateSyncStatusBox();
-  openModal('modal-settings');
-}
-
-function setSyncIndicator(state, text) {
-  const el = document.getElementById('sync-indicator');
-  const colors = { ok: 'var(--success)', err: 'var(--danger)', syncing: 'var(--warning)', off: 'var(--muted)' };
-  if (state === 'off') { el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  el.style.color = colors[state] || 'var(--muted)';
-  el.textContent = text;
-}
 
 function setSyncStatus(state, extra) {
   updateSyncStatusBox(state, extra);
