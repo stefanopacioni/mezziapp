@@ -428,6 +428,10 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
             <div class="deadline-row-title">💰 Bollo</div>
             <input class="form-input" id="v-bollo" type="date">
           </div>
+          <div class="deadline-row">
+            <div class="deadline-row-title">🔵 Collaudo Metano</div>
+            <input class="form-input" id="v-metano" type="date">
+          </div>
         </div>
       </div>
       <div style="display:flex;gap:10px">
@@ -734,10 +738,10 @@ function renderDashboard() {
 }
 
 function getDeadlineBadges(v) {
-  return ['revisione','assicurazione','bollo'].map(k => {
+  return ['revisione','assicurazione','bollo','metano'].map(k => {
     if (!v[k]) return '';
     const d = daysUntil(v[k]);
-    const icons = { revisione:'🔧', assicurazione:'🛡️', bollo:'💰' };
+    const icons = { revisione:'🔧', assicurazione:'🛡️', bollo:'💰', metano:'🔵' };
     if (d < 0) return `<span class="badge badge-danger">${icons[k]} Scad.</span>`;
     if (d <= 30) return `<span class="badge badge-warn">${icons[k]} ${d}gg</span>`;
     return '';
@@ -822,7 +826,8 @@ function renderDeadlineStrip(v) {
   const items = [
     {key:'revisione',label:'Revisione',icon:'🔧'},
     {key:'assicurazione',label:'Assicurazione',icon:'🛡️'},
-    {key:'bollo',label:'Bollo',icon:'💰'}
+    {key:'bollo',label:'Bollo',icon:'💰'},
+    {key:'metano',label:'Col. Metano',icon:'🔵'}
   ].filter(i => v[i.key]);
   if (!items.length) return '';
   return `<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
@@ -845,7 +850,7 @@ function renderDeadlineStrip(v) {
 function openAddVehicle() {
   editingVehicleId = null;
   document.getElementById('modal-vehicle-title').textContent = 'Nuovo Mezzo';
-  ['v-name','v-plate','v-revisione','v-assicurazione','v-bollo'].forEach(id => document.getElementById(id).value = '');
+  ['v-name','v-plate','v-revisione','v-assicurazione','v-bollo','v-metano'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('v-type').value = '🚗';
   selectedColor = '#e8ff47';
   document.querySelectorAll('#color-chips .chip').forEach(c => { c.classList.remove('active'); if(c.dataset.color==='#e8ff47') c.classList.add('active'); });
@@ -862,6 +867,7 @@ function openEditVehicle(id) {
   document.getElementById('v-revisione').value = v.revisione||'';
   document.getElementById('v-assicurazione').value = v.assicurazione||'';
   document.getElementById('v-bollo').value = v.bollo||'';
+  document.getElementById('v-metano').value = v.metano||'';
   selectedColor = v.color||'#e8ff47';
   document.querySelectorAll('#color-chips .chip').forEach(c => { c.classList.remove('active'); if(c.dataset.color===selectedColor) c.classList.add('active'); });
   openModal('modal-vehicle');
@@ -876,6 +882,7 @@ function saveVehicle() {
     revisione: document.getElementById('v-revisione').value,
     assicurazione: document.getElementById('v-assicurazione').value,
     bollo: document.getElementById('v-bollo').value,
+    metano: document.getElementById('v-metano').value,
   };
   if (editingVehicleId) {
     const idx = db.vehicles.findIndex(v=>v.id===editingVehicleId);
@@ -1036,7 +1043,8 @@ function renderDeadlines() {
   const types = [
     {key:'revisione',label:'Revisione',icon:'🔧'},
     {key:'assicurazione',label:'Assicurazione',icon:'🛡️'},
-    {key:'bollo',label:'Bollo',icon:'💰'}
+    {key:'bollo',label:'Bollo',icon:'💰'},
+    {key:'metano',label:'Collaudo Metano',icon:'🔵'}
   ];
   const all = [];
   db.vehicles.forEach(v => types.forEach(t => { if(v[t.key]) all.push({vehicle:v,type:t,date:v[t.key],days:daysUntil(v[t.key])}); }));
@@ -1076,7 +1084,7 @@ function renderDeadlineGroup(title, items) {
 }
 function getExpiringDeadlines(days) {
   const r=[];
-  db.vehicles.forEach(v=>['revisione','assicurazione','bollo'].forEach(k=>{ if(v[k]){ const d=daysUntil(v[k]); if(d<=days) r.push({vehicle:v,key:k,days:d}); } }));
+  db.vehicles.forEach(v=>['revisione','assicurazione','bollo','metano'].forEach(k=>{ if(v[k]){ const d=daysUntil(v[k]); if(d<=days) r.push({vehicle:v,key:k,days:d}); } }));
   return r;
 }
 
@@ -1403,7 +1411,7 @@ async function initNotifications() {
   localStorage.setItem('last_notif_date',today);
   if(Notification.permission!=='granted') return;
   getExpiringDeadlines(30).forEach(item=>{
-    const names={revisione:'Revisione',assicurazione:'Assicurazione',bollo:'Bollo'};
+    const names={revisione:'Revisione',assicurazione:'Assicurazione',bollo:'Bollo',metano:'Collaudo Metano'};
     try {
       new Notification(`⚠️ ${names[item.key]} in scadenza`,{
         body:`${item.vehicle.name}: scade tra ${item.days>=0?item.days+' giorni':'oggi/scaduto'}`,
